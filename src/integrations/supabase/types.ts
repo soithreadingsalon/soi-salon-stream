@@ -290,10 +290,14 @@ export type Database = {
           completed_at: string | null
           created_at: string
           customer_id: string | null
+          customer_paid_confirmed: boolean
+          customer_payment_method: string | null
+          customer_tip_amount: number
           discount_total: number
           id: string
           notes: string | null
           order_number: number
+          register_session_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           tax_total: number
@@ -306,10 +310,14 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           customer_id?: string | null
+          customer_paid_confirmed?: boolean
+          customer_payment_method?: string | null
+          customer_tip_amount?: number
           discount_total?: number
           id?: string
           notes?: string | null
           order_number?: number
+          register_session_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           tax_total?: number
@@ -322,10 +330,14 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           customer_id?: string | null
+          customer_paid_confirmed?: boolean
+          customer_payment_method?: string | null
+          customer_tip_amount?: number
           discount_total?: number
           id?: string
           notes?: string | null
           order_number?: number
+          register_session_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           tax_total?: number
@@ -339,6 +351,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_register_session_id_fkey"
+            columns: ["register_session_id"]
+            isOneToOne: false
+            referencedRelation: "register_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -422,6 +441,39 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      register_sessions: {
+        Row: {
+          active_order_id: string | null
+          code: string
+          created_at: string
+          id: string
+          last_seen_at: string
+          paired_at: string | null
+          register_name: string
+          updated_at: string
+        }
+        Insert: {
+          active_order_id?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          paired_at?: string | null
+          register_name?: string
+          updated_at?: string
+        }
+        Update: {
+          active_order_id?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          paired_at?: string | null
+          register_name?: string
           updated_at?: string
         }
         Relationships: []
@@ -567,6 +619,8 @@ export type Database = {
         | "voided"
         | "refunded"
         | "partially_refunded"
+        | "awaiting_customer"
+        | "awaiting_confirmation"
       payment_method: "cash" | "card" | "gift_card" | "other" | "split"
       payment_status:
         | "pending"
@@ -710,6 +764,8 @@ export const Constants = {
         "voided",
         "refunded",
         "partially_refunded",
+        "awaiting_customer",
+        "awaiting_confirmation",
       ],
       payment_method: ["cash", "card", "gift_card", "other", "split"],
       payment_status: [
