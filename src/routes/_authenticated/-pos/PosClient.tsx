@@ -460,11 +460,18 @@ export function PosClient() {
             {/* TIP — percentage shortcuts + custom $ */}
             {cart.length > 0 && (
               <div className="mb-3 rounded-lg border border-border bg-card p-2.5">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tip</span>
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tip</span>
+                    {customerChoseTip && (
+                      <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                        Customer chose {customerChoseTip}
+                      </span>
+                    )}
+                  </div>
                   {(tipPct !== null || tipCustom > 0) && (
                     <button
-                      onClick={() => { setTipPct(null); setTipCustom(0); }}
+                      onClick={() => { setTipPct(null); setTipCustom(0); setCustomerChoseTip(null); }}
                       className="text-[11px] text-muted-foreground hover:text-destructive"
                     >No tip</button>
                   )}
