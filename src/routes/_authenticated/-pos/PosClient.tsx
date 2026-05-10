@@ -253,8 +253,14 @@ export function PosClient() {
     },
     onSuccess: (orderId) => {
       toast.success("Payment successful");
+      // Flash "Thank you" on customer display
+      publishSession({
+        items: [], customer: null, subtotal: 0, discount: 0, tax: 0,
+        tip: 0, total, tipPct: null, tipCustom: 0,
+        status: "paid", business_name: settings?.business_name, updatedAt: Date.now(),
+      });
       setReceiptOrderId(orderId);
-      setCart([]); setCustomer(null); setTipPct(null);
+      setCart([]); setCustomer(null); setTipPct(null); setTipCustom(0);
       setDiscount(0); setPointsRedeem(0); setPaying(false);
       qc.invalidateQueries({ queryKey: ["dashboard-today"] });
       qc.invalidateQueries({ queryKey: ["loyalty"] });
