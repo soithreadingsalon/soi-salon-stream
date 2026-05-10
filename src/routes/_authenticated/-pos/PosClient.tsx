@@ -55,6 +55,7 @@ export function PosClient() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [tipPct, setTipPct] = useState<number | null>(null);
+  const [tipCustom, setTipCustom] = useState<number>(0);
   const [discount, setDiscount] = useState(0);
   const [pointsRedeem, setPointsRedeem] = useState(0); // 100 pts = $5
   const [paying, setPaying] = useState(false);
