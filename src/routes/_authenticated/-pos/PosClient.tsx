@@ -18,6 +18,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ReceiptDialog } from "./ReceiptDialog";
+import { publishSession, type PosSession } from "@/lib/pos-session";
+import { Monitor } from "lucide-react";
 
 type Service = {
   id: string; name: string; price: number; starts_at: boolean;
