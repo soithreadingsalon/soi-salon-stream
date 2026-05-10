@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,8 +67,8 @@ function CustomersPage() {
             </thead>
             <tbody>
               {data.map((c: any) => (
-                <tr key={c.id} className="border-t border-border hover:bg-accent/20">
-                  <td className="p-3 font-medium">{c.full_name}</td>
+                <tr key={c.id} className="border-t border-border hover:bg-accent/20 cursor-pointer">
+                  <td className="p-3 font-medium"><Link to="/customers/$customerId" params={{ customerId: c.id }} className="hover:text-gold">{c.full_name}</Link></td>
                   <td className="p-3 text-muted-foreground">{c.phone}</td>
                   <td className="p-3 text-muted-foreground">{c.email}</td>
                   <td className="p-3 text-right">{c.visit_count}</td>
