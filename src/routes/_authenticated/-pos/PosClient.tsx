@@ -146,8 +146,36 @@ export function PosClient() {
   const totalDiscount = Math.min(subtotal, discount + pointsValue);
   const taxableAfterDisc = Math.max(0, taxableSubtotal - totalDiscount);
   const tax = +(taxableAfterDisc * taxRate).toFixed(2);
-  const tip = tipPct ? +((subtotal - totalDiscount) * (tipPct / 100)).toFixed(2) : 0;
+  const tip = tipCustom > 0
+    ? +tipCustom.toFixed(2)
+    : tipPct ? +((subtotal - totalDiscount) * (tipPct / 100)).toFixed(2) : 0;
   const total = +(Math.max(0, subtotal - totalDiscount) + tax + tip).toFixed(2);
+
+  // Broadcast live session to customer-display
+  useEffect(() => {
+    const session: PosSession = {
+      items: cart.map((i) => ({
+        uid: i.uid, service_name: i.service_name,
+        unit_price: i.unit_price, quantity: i.quantity, is_free: i.is_free,
+      })),
+      customer: customer ? {
+        full_name: customer.full_name,
+        points_balance: loyalty?.points_balance,
+        free_eyebrow_credits: loyalty?.free_eyebrow_credits,
+        visit_count: customer.visit_count,
+      } : null,
+      subtotal, discount: totalDiscount, tax, tip, total,
+      tipPct, tipCustom,
+      status: cart.length === 0 ? "idle" : "building",
+      business_name: settings?.business_name,
+      updatedAt: Date.now(),
+    };
+    publishSession(session);
+  }, [cart, customer, loyalty, subtotal, totalDiscount, tax, tip, total, tipPct, tipCustom, settings?.business_name]);
+
+  const openCustomerView = () => {
+    window.open("/customer-display", "soi-customer-display", "noopener");
+  };
 
   // reset reward redemption when customer changes
   useEffect(() => { setPointsRedeem(0); }, [customer?.id]);
