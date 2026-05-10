@@ -49,6 +49,9 @@ export const emptySession: PosSession = {
   total: 0,
   tipPct: null,
   tipCustom: 0,
+  customerTipPct: null,
+  customerTipCustom: 0,
+  customerReady: false,
   status: "idle",
   updatedAt: 0,
 };
