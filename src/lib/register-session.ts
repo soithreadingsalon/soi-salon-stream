@@ -46,7 +46,7 @@ export async function getOrCreateRegister(): Promise<RegisterSession> {
       .select("*")
       .eq("id", cached)
       .maybeSingle();
-    if (data) return data as RegisterSession;
+    if (data) return data as unknown as RegisterSession;
   }
   const { data: existing } = await supabase
     .from("register_sessions")
@@ -56,7 +56,7 @@ export async function getOrCreateRegister(): Promise<RegisterSession> {
     .maybeSingle();
   if (existing) {
     localStorage.setItem(KEY_CASHIER, existing.id);
-    return existing as RegisterSession;
+    return existing as unknown as RegisterSession;
   }
   for (let i = 0; i < 10; i++) {
     const code = gen4();
@@ -67,7 +67,7 @@ export async function getOrCreateRegister(): Promise<RegisterSession> {
       .single();
     if (!error && data) {
       localStorage.setItem(KEY_CASHIER, data.id);
-      return data as RegisterSession;
+      return data as unknown as RegisterSession;
     }
   }
   throw new Error("Could not create register session");
@@ -89,7 +89,7 @@ export function useRegisterSession() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "register_sessions", filter: `id=eq.${reg.id}` },
-        (p) => setReg(p.new as RegisterSession),
+        (p) => setReg(p.new as unknown as RegisterSession),
       )
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -114,7 +114,7 @@ export async function pairByCode(code: string): Promise<RegisterSession | null> 
     .maybeSingle();
   if (!data) return null;
   setCustomerPairedId(data.id);
-  return data as RegisterSession;
+  return data as unknown as RegisterSession;
 }
 
 export async function publishLiveCart(registerId: string, cart: LiveCart) {
