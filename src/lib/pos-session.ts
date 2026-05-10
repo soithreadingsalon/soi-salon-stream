@@ -27,6 +27,10 @@ export type PosSession = {
   total: number;
   tipPct: number | null;
   tipCustom: number; // 0 means none; >0 overrides percentage
+  // Customer-side tip selection (mirrored to cashier)
+  customerTipPct?: number | null;
+  customerTipCustom?: number;
+  customerReady?: boolean;
   status: "building" | "paid" | "idle";
   business_name?: string;
   updatedAt: number;
