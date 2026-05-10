@@ -1,60 +1,60 @@
+# Add Tip Flow + Customer-Facing View
 
-## What's broken right now
+## 1. Tip selection on the cashier POS
 
-The root cause of "denies when I try to add service / charge" is a Postgres permission issue, not a logic bug:
+In `PosClient.tsx`, add a Tip section that appears once the cart has items, just above the totals:
 
-```
-permission denied for function has_any_role
-```
+- **Percentage shortcuts**: 15%, 18%, 20%, 25% (pulled from `business_settings.tip_presets`, fallback to defaults). Calculated off subtotal − discounts (pre-tax).
+- **Custom $ amount**: a numeric input ("$ Custom") that overrides the percentage selection.
+- **No Tip** button to clear.
+- Selected preset is visually highlighted (gold ring).
+- The chosen tip flows into the existing `tip_total` column on `orders` — no schema change needed.
+- Cart totals update live: Subtotal → Discount → Tip → Tax → **Total**.
+- Receipt already supports tip; just confirm it renders.
 
-Every RLS policy on `orders`, `order_items`, `payments`, `user_roles`, etc. calls `public.has_any_role(...)`. That function exists, but `EXECUTE` was never granted to the `authenticated` role, so every policy check fails → 403 on every insert and on `user_roles` reads. This blocks checkout entirely.
+## 2. Customer-facing view (second screen / "flip to customer")
 
-Multiple-services-per-cart already works in code (cart accepts many items, qty +/-), but you can't see it because checkout 403s before the order saves.
+A second view of the same active cart, designed for the customer to see and approve. Two ways to access it:
 
-## Plan
+**A. Side-by-side toggle (in-preview testing)**
+A header button **"Customer View"** opens a separate route `/customer-display` in a new browser tab/window. Both views read the same cart from the database in real-time.
 
-### 1. Fix the database permission bug (migration)
-- `GRANT EXECUTE ON FUNCTION public.has_role, public.has_any_role TO authenticated, anon;`
-- Re-verify by inserting a test order via the POS after the fix.
+**B. How they stay in sync**
+- Cashier's working cart is persisted as a single `orders` row with `status = 'open'` (already how it works).
+- The customer view subscribes via Supabase Realtime to that order + its `order_items`, so every add/remove/tip change on the cashier side appears instantly on the customer side.
+- A small `localStorage` key `soi.activeOrderId` tells the customer-display route which order to show. The cashier toggle writes this key and opens the new tab.
 
-### 2. Add loyalty / rewards (schema + logic)
-- New table `loyalty_accounts` (customer_id, points_balance, lifetime_points, eyebrow_threading_count, free_eyebrow_credits).
-- New table `loyalty_transactions` (customer_id, order_id, points_delta, reason, created_at) for full audit trail.
-- Rules seeded into `business_settings` (already exists) + new columns:
-  - 1 point per $1 spent (configurable).
-  - Every 10th eyebrow threading = 1 free eyebrow credit (matches SOI's classic loyalty).
-  - 100 points = $5 off redeemable at checkout.
-- DB trigger on `orders` (status → completed) that:
-  - awards points,
-  - increments eyebrow threading counter when an `order_items.service_name = 'Eyebrow'` (threading category) is in the order,
-  - issues free credits at every 10th visit.
-- RLS: customers row readable to all authenticated staff; loyalty writes only via trigger / manager+.
+**Customer-display screen contents** (large, minimal, brand-styled):
+- SOI logo + "Welcome" header
+- Itemized list (service name, qty, price)
+- Subtotal, discount, **tip (with the tip selector mirrored here so the customer can pick their own tip on a customer-facing tablet)**, tax, **Total** in huge type
+- Loyalty status if customer attached ("You have X points • Y visits to next free eyebrow")
+- "Thank you" state once payment succeeds
+- No admin/cashier controls, no nav
 
-### 3. Make the POS dashboard genuinely user-friendly
-Current pain points on a 748px viewport: tiny tabs, cramped cart, hidden customer search, no visible rewards.
+Tip changes from either side write to the same `orders.tip_total` and propagate via realtime.
 
-Redesign:
-- **Top bar**: big customer chip (search-as-you-type, recent customers, "Walk-in" default) — always visible, not hidden behind a dialog. Shows loyalty status inline ("⭐ 240 pts · 1 free eyebrow available").
-- **Left**: large category pills (icons + name), 2-row grid of service tiles with bigger touch targets, a sticky search box that filters across all categories.
-- **Right (cart)**: clearer line items with inline qty stepper, per-item staff assignment dropdown, swipe/X to remove, running total in giant type, prominent "Apply free eyebrow" button when credits exist, prominent "Redeem 100 pts" when eligible.
-- **Pay sheet**: 3 huge buttons (Cash / Card / Other), cash gives a quick-tender pad ($20, $40, $50, exact, custom) + change due; card shows mock terminal animation then success.
-- Toast feedback on every add/remove; haptic-feel hover lift retained.
-- Empty state explains "Tap any service to start a sale".
+## 3. Realtime enablement
+Add `orders` and `order_items` to the `supabase_realtime` publication via a small migration so the customer-display screen receives live updates.
 
-### 4. Better customer search + attach
-- Live search (already partially there) upgraded to:
-  - Searches name, phone (digits-only normalized), email.
-  - Shows last visit, total spend, loyalty points in each result row.
-  - "Recent customers" list when query is empty.
-  - One-tap "New customer" inline form (name + phone only required).
-- Once attached, customer chip shows rewards summary and a "View profile" link to `/customers/$id`.
+## 4. How to test in the Lovable preview
 
-### 5. Customer profile improvements
-- `/customers/$id` page: contact info, lifetime spend, visit count, last 20 orders, loyalty balance, free-credit history, notes/allergies edit.
+1. Open the POS at `/pos` in the preview — this is the **cashier view**.
+2. Add 2–3 services to the cart, attach a customer.
+3. Click the new **"Customer View"** button in the top bar — a second browser tab opens at `/customer-display` showing the same cart.
+4. Arrange the two tabs side-by-side (or use two monitors / a tablet for the customer tab in production).
+5. On the cashier tab, tap a tip preset (e.g. 20%) — watch the customer tab update instantly.
+6. On the cashier tab, type a custom tip amount — confirm both views show it.
+7. Tap "No Tip" — confirm both clear.
+8. Charge the order (Cash/Card mock) — customer tab flips to a "Thank you" screen, cashier tab shows the receipt dialog.
 
-### 6. Verify
-- Run a full test sale with multiple services (e.g. Eyebrow + Upper Lip + Full Face) on a real customer; confirm order, payment, loyalty trigger, and receipt all succeed.
-- Run Supabase linter.
+In production this is the same flow but the customer tab runs on a second screen / customer-facing tablet pointed at the same login.
 
-## Out of scope this iteration
-Appointments/queue, staff scheduling, real Stripe Terminal, gift cards, memberships, CSV/PDF export — these stay for the next round per the original phasing.
+## Files touched
+- `src/routes/_authenticated/-pos/PosClient.tsx` — tip UI, "Customer View" button, persist active order id
+- `src/routes/customer-display.tsx` (new, public route, no auth wrapper needed since it just reads an order id) — customer-facing screen with realtime subscription
+- `supabase/migrations/<ts>_realtime_orders.sql` — enable realtime on orders + order_items
+- `src/routes/_authenticated/-pos/ReceiptDialog.tsx` — verify tip line renders (likely already does)
+
+## Out of scope
+Real Stripe Terminal customer prompts, signature capture, tip-on-card-reader (those come with real Stripe Terminal in a later round).
