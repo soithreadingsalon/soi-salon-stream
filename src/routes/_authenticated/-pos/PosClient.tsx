@@ -522,6 +522,18 @@ export function PosClient() {
                 <span className="font-display text-3xl font-semibold text-foreground">{fmt(total)}</span>
               </div>
             </div>
+            {customerReady && cart.length > 0 && (
+              <div className="mt-3 flex items-center justify-between rounded-lg border-2 border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                <span className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75"></span>
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                  </span>
+                  Customer is ready to pay
+                </span>
+                <button onClick={() => setCustomerReady(false)} className="text-xs font-normal opacity-70 hover:opacity-100">dismiss</button>
+              </div>
+            )}
             <Button size="lg" disabled={cart.length === 0}
               onClick={() => setPaying(true)}
               className="mt-3 h-14 w-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90">
