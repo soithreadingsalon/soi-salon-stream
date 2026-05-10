@@ -18,7 +18,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ReceiptDialog } from "./ReceiptDialog";
-import { publishSession, type PosSession } from "@/lib/pos-session";
+import { publishSession, subscribeSession, type PosSession } from "@/lib/pos-session";
 import { Monitor } from "lucide-react";
 
 type Service = {
@@ -62,6 +62,8 @@ export function PosClient() {
   const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
   const [custDialog, setCustDialog] = useState(false);
   const [newCustOpen, setNewCustOpen] = useState(false);
+  const [customerReady, setCustomerReady] = useState(false);
+  const [customerChoseTip, setCustomerChoseTip] = useState<string | null>(null);
 
   const { data: cats = [] } = useQuery<Category[]>({
     queryKey: ["service_categories"],
@@ -166,12 +168,32 @@ export function PosClient() {
       } : null,
       subtotal, discount: totalDiscount, tax, tip, total,
       tipPct, tipCustom,
+      customerReady,
       status: cart.length === 0 ? "idle" : "building",
       business_name: settings?.business_name,
       updatedAt: Date.now(),
     };
     publishSession(session);
-  }, [cart, customer, loyalty, subtotal, totalDiscount, tax, tip, total, tipPct, tipCustom, settings?.business_name]);
+  }, [cart, customer, loyalty, subtotal, totalDiscount, tax, tip, total, tipPct, tipCustom, customerReady, settings?.business_name]);
+
+  // Listen for customer-side tip + ready signals from /customer-display
+  useEffect(() => {
+    return subscribeSession((s) => {
+      const cTipPct = s.customerTipPct ?? null;
+      const cTipCustom = s.customerTipCustom ?? 0;
+      // Mirror customer tip choice into cashier state
+      if (cTipCustom > 0) {
+        setTipCustom((prev) => (prev !== cTipCustom ? cTipCustom : prev));
+        setTipPct((prev) => (prev !== null ? null : prev));
+        setCustomerChoseTip(`$${cTipCustom.toFixed(2)}`);
+      } else if (cTipPct !== null) {
+        setTipPct((prev) => (prev !== cTipPct ? cTipPct : prev));
+        setTipCustom((prev) => (prev !== 0 ? 0 : prev));
+        setCustomerChoseTip(`${cTipPct}%`);
+      }
+      if (s.customerReady) setCustomerReady(true);
+    });
+  }, []);
 
   const openCustomerView = () => {
     window.open("/customer-display", "soi-customer-display", "noopener");
@@ -257,11 +279,13 @@ export function PosClient() {
       publishSession({
         items: [], customer: null, subtotal: 0, discount: 0, tax: 0,
         tip: 0, total, tipPct: null, tipCustom: 0,
+        customerTipPct: null, customerTipCustom: 0, customerReady: false,
         status: "paid", business_name: settings?.business_name, updatedAt: Date.now(),
       });
       setReceiptOrderId(orderId);
       setCart([]); setCustomer(null); setTipPct(null); setTipCustom(0);
       setDiscount(0); setPointsRedeem(0); setPaying(false);
+      setCustomerReady(false); setCustomerChoseTip(null);
       qc.invalidateQueries({ queryKey: ["dashboard-today"] });
       qc.invalidateQueries({ queryKey: ["loyalty"] });
     },
@@ -436,11 +460,18 @@ export function PosClient() {
             {/* TIP — percentage shortcuts + custom $ */}
             {cart.length > 0 && (
               <div className="mb-3 rounded-lg border border-border bg-card p-2.5">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tip</span>
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tip</span>
+                    {customerChoseTip && (
+                      <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                        Customer chose {customerChoseTip}
+                      </span>
+                    )}
+                  </div>
                   {(tipPct !== null || tipCustom > 0) && (
                     <button
-                      onClick={() => { setTipPct(null); setTipCustom(0); }}
+                      onClick={() => { setTipPct(null); setTipCustom(0); setCustomerChoseTip(null); }}
                       className="text-[11px] text-muted-foreground hover:text-destructive"
                     >No tip</button>
                   )}
@@ -491,6 +522,18 @@ export function PosClient() {
                 <span className="font-display text-3xl font-semibold text-foreground">{fmt(total)}</span>
               </div>
             </div>
+            {customerReady && cart.length > 0 && (
+              <div className="mt-3 flex items-center justify-between rounded-lg border-2 border-emerald-500/50 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                <span className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75"></span>
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                  </span>
+                  Customer is ready to pay
+                </span>
+                <button onClick={() => setCustomerReady(false)} className="text-xs font-normal opacity-70 hover:opacity-100">dismiss</button>
+              </div>
+            )}
             <Button size="lg" disabled={cart.length === 0}
               onClick={() => setPaying(true)}
               className="mt-3 h-14 w-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90">
