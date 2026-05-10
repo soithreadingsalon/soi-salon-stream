@@ -168,12 +168,32 @@ export function PosClient() {
       } : null,
       subtotal, discount: totalDiscount, tax, tip, total,
       tipPct, tipCustom,
+      customerReady,
       status: cart.length === 0 ? "idle" : "building",
       business_name: settings?.business_name,
       updatedAt: Date.now(),
     };
     publishSession(session);
-  }, [cart, customer, loyalty, subtotal, totalDiscount, tax, tip, total, tipPct, tipCustom, settings?.business_name]);
+  }, [cart, customer, loyalty, subtotal, totalDiscount, tax, tip, total, tipPct, tipCustom, customerReady, settings?.business_name]);
+
+  // Listen for customer-side tip + ready signals from /customer-display
+  useEffect(() => {
+    return subscribeSession((s) => {
+      const cTipPct = s.customerTipPct ?? null;
+      const cTipCustom = s.customerTipCustom ?? 0;
+      // Mirror customer tip choice into cashier state
+      if (cTipCustom > 0) {
+        setTipCustom((prev) => (prev !== cTipCustom ? cTipCustom : prev));
+        setTipPct((prev) => (prev !== null ? null : prev));
+        setCustomerChoseTip(`$${cTipCustom.toFixed(2)}`);
+      } else if (cTipPct !== null) {
+        setTipPct((prev) => (prev !== cTipPct ? cTipPct : prev));
+        setTipCustom((prev) => (prev !== 0 ? 0 : prev));
+        setCustomerChoseTip(`${cTipPct}%`);
+      }
+      if (s.customerReady) setCustomerReady(true);
+    });
+  }, []);
 
   const openCustomerView = () => {
     window.open("/customer-display", "soi-customer-display", "noopener");
