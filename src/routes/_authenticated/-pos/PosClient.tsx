@@ -18,6 +18,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ReceiptDialog } from "./ReceiptDialog";
+import { publishSession, type PosSession } from "@/lib/pos-session";
+import { Monitor } from "lucide-react";
 
 type Service = {
   id: string; name: string; price: number; starts_at: boolean;
@@ -53,6 +55,7 @@ export function PosClient() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [tipPct, setTipPct] = useState<number | null>(null);
+  const [tipCustom, setTipCustom] = useState<number>(0);
   const [discount, setDiscount] = useState(0);
   const [pointsRedeem, setPointsRedeem] = useState(0); // 100 pts = $5
   const [paying, setPaying] = useState(false);
@@ -143,8 +146,36 @@ export function PosClient() {
   const totalDiscount = Math.min(subtotal, discount + pointsValue);
   const taxableAfterDisc = Math.max(0, taxableSubtotal - totalDiscount);
   const tax = +(taxableAfterDisc * taxRate).toFixed(2);
-  const tip = tipPct ? +((subtotal - totalDiscount) * (tipPct / 100)).toFixed(2) : 0;
+  const tip = tipCustom > 0
+    ? +tipCustom.toFixed(2)
+    : tipPct ? +((subtotal - totalDiscount) * (tipPct / 100)).toFixed(2) : 0;
   const total = +(Math.max(0, subtotal - totalDiscount) + tax + tip).toFixed(2);
+
+  // Broadcast live session to customer-display
+  useEffect(() => {
+    const session: PosSession = {
+      items: cart.map((i) => ({
+        uid: i.uid, service_name: i.service_name,
+        unit_price: i.unit_price, quantity: i.quantity, is_free: i.is_free,
+      })),
+      customer: customer ? {
+        full_name: customer.full_name,
+        points_balance: loyalty?.points_balance,
+        free_eyebrow_credits: loyalty?.free_eyebrow_credits,
+        visit_count: customer.visit_count,
+      } : null,
+      subtotal, discount: totalDiscount, tax, tip, total,
+      tipPct, tipCustom,
+      status: cart.length === 0 ? "idle" : "building",
+      business_name: settings?.business_name,
+      updatedAt: Date.now(),
+    };
+    publishSession(session);
+  }, [cart, customer, loyalty, subtotal, totalDiscount, tax, tip, total, tipPct, tipCustom, settings?.business_name]);
+
+  const openCustomerView = () => {
+    window.open("/customer-display", "soi-customer-display", "noopener");
+  };
 
   // reset reward redemption when customer changes
   useEffect(() => { setPointsRedeem(0); }, [customer?.id]);
@@ -222,8 +253,14 @@ export function PosClient() {
     },
     onSuccess: (orderId) => {
       toast.success("Payment successful");
+      // Flash "Thank you" on customer display
+      publishSession({
+        items: [], customer: null, subtotal: 0, discount: 0, tax: 0,
+        tip: 0, total, tipPct: null, tipCustom: 0,
+        status: "paid", business_name: settings?.business_name, updatedAt: Date.now(),
+      });
       setReceiptOrderId(orderId);
-      setCart([]); setCustomer(null); setTipPct(null);
+      setCart([]); setCustomer(null); setTipPct(null); setTipCustom(0);
       setDiscount(0); setPointsRedeem(0); setPaying(false);
       qc.invalidateQueries({ queryKey: ["dashboard-today"] });
       qc.invalidateQueries({ queryKey: ["loyalty"] });
@@ -237,18 +274,30 @@ export function PosClient() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col gap-3 p-3 md:p-4">
-      {/* TOP CUSTOMER BAR — always visible */}
-      <CustomerBar
-        customer={customer}
-        loyalty={loyalty ?? null}
-        onClear={() => setCustomer(null)}
-        onPick={() => setCustDialog(true)}
-        onRedeemFreeEyebrow={() =>
-          eyebrowService && addService(eyebrowService, { free: true })
-        }
-        cart={cart}
-      />
-
+      {/* TOP BAR — customer + customer-display launcher */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+        <div className="flex-1">
+          <CustomerBar
+            customer={customer}
+            loyalty={loyalty ?? null}
+            onClear={() => setCustomer(null)}
+            onPick={() => setCustDialog(true)}
+            onRedeemFreeEyebrow={() =>
+              eyebrowService && addService(eyebrowService, { free: true })
+            }
+            cart={cart}
+          />
+        </div>
+        <Button
+          variant="outline"
+          onClick={openCustomerView}
+          title="Open the customer-facing display in a new window"
+          className="h-auto gap-2 border-gold/60 px-4 text-foreground hover:bg-gold/10"
+        >
+          <Monitor className="h-4 w-4 text-gold" />
+          Customer View
+        </Button>
+      </div>
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[1fr_380px]">
         {/* CATALOG */}
         <Card className="flex flex-col overflow-hidden border-border/60 shadow-soft">
@@ -382,16 +431,54 @@ export function PosClient() {
               <Input type="number" min="0" value={discount || ""}
                 onChange={(e) => setDiscount(Number(e.target.value) || 0)}
                 className="h-7 w-16 text-xs" />
-              <div className="ml-auto flex gap-1">
-                {(settings?.tip_presets ?? [15, 18, 20]).map((p: number) => (
-                  <button key={p} onClick={() => setTipPct(tipPct === p ? null : p)}
-                    className={`rounded-md border px-2 py-0.5 text-xs ${
-                      tipPct === p ? "border-gold bg-gold text-primary"
-                        : "border-border bg-card hover:border-gold/60"
-                    }`}>{p}%</button>
-                ))}
-              </div>
             </div>
+
+            {/* TIP — percentage shortcuts + custom $ */}
+            {cart.length > 0 && (
+              <div className="mb-3 rounded-lg border border-border bg-card p-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tip</span>
+                  {(tipPct !== null || tipCustom > 0) && (
+                    <button
+                      onClick={() => { setTipPct(null); setTipCustom(0); }}
+                      className="text-[11px] text-muted-foreground hover:text-destructive"
+                    >No tip</button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(settings?.tip_presets ?? [15, 18, 20]).map((p: number) => {
+                    const active = tipPct === p && tipCustom === 0;
+                    const amt = +((subtotal - totalDiscount) * (p / 100)).toFixed(2);
+                    return (
+                      <button key={p}
+                        onClick={() => { setTipCustom(0); setTipPct(active ? null : p); }}
+                        className={`flex-1 min-w-[64px] rounded-md border px-2 py-1.5 text-xs font-semibold transition ${
+                          active
+                            ? "border-gold bg-gold text-primary shadow-soft"
+                            : "border-border bg-card hover:border-gold/60"
+                        }`}>
+                        <div>{p}%</div>
+                        <div className="text-[10px] font-normal opacity-70">{fmt(amt)}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Label className="text-[11px] text-muted-foreground">Custom $</Label>
+                  <Input
+                    type="number" min="0" step="0.01"
+                    value={tipCustom || ""}
+                    onChange={(e) => {
+                      const v = Number(e.target.value) || 0;
+                      setTipCustom(v);
+                      if (v > 0) setTipPct(null);
+                    }}
+                    placeholder="0.00"
+                    className={`h-8 flex-1 text-sm ${tipCustom > 0 ? "border-gold ring-1 ring-gold/30" : ""}`}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1 text-sm">
               <Row label="Subtotal" value={fmt(subtotal)} />
