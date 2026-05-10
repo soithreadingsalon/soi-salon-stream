@@ -431,16 +431,54 @@ export function PosClient() {
               <Input type="number" min="0" value={discount || ""}
                 onChange={(e) => setDiscount(Number(e.target.value) || 0)}
                 className="h-7 w-16 text-xs" />
-              <div className="ml-auto flex gap-1">
-                {(settings?.tip_presets ?? [15, 18, 20]).map((p: number) => (
-                  <button key={p} onClick={() => setTipPct(tipPct === p ? null : p)}
-                    className={`rounded-md border px-2 py-0.5 text-xs ${
-                      tipPct === p ? "border-gold bg-gold text-primary"
-                        : "border-border bg-card hover:border-gold/60"
-                    }`}>{p}%</button>
-                ))}
-              </div>
             </div>
+
+            {/* TIP — percentage shortcuts + custom $ */}
+            {cart.length > 0 && (
+              <div className="mb-3 rounded-lg border border-border bg-card p-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tip</span>
+                  {(tipPct !== null || tipCustom > 0) && (
+                    <button
+                      onClick={() => { setTipPct(null); setTipCustom(0); }}
+                      className="text-[11px] text-muted-foreground hover:text-destructive"
+                    >No tip</button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(settings?.tip_presets ?? [15, 18, 20]).map((p: number) => {
+                    const active = tipPct === p && tipCustom === 0;
+                    const amt = +((subtotal - totalDiscount) * (p / 100)).toFixed(2);
+                    return (
+                      <button key={p}
+                        onClick={() => { setTipCustom(0); setTipPct(active ? null : p); }}
+                        className={`flex-1 min-w-[64px] rounded-md border px-2 py-1.5 text-xs font-semibold transition ${
+                          active
+                            ? "border-gold bg-gold text-primary shadow-soft"
+                            : "border-border bg-card hover:border-gold/60"
+                        }`}>
+                        <div>{p}%</div>
+                        <div className="text-[10px] font-normal opacity-70">{fmt(amt)}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <Label className="text-[11px] text-muted-foreground">Custom $</Label>
+                  <Input
+                    type="number" min="0" step="0.01"
+                    value={tipCustom || ""}
+                    onChange={(e) => {
+                      const v = Number(e.target.value) || 0;
+                      setTipCustom(v);
+                      if (v > 0) setTipPct(null);
+                    }}
+                    placeholder="0.00"
+                    className={`h-8 flex-1 text-sm ${tipCustom > 0 ? "border-gold ring-1 ring-gold/30" : ""}`}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1 text-sm">
               <Row label="Subtotal" value={fmt(subtotal)} />
