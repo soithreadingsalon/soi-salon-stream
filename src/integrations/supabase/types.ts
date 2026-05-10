@@ -164,6 +164,69 @@ export type Database = {
         }
         Relationships: []
       }
+      loyalty_accounts: {
+        Row: {
+          created_at: string
+          customer_id: string
+          eyebrow_threading_count: number
+          free_eyebrow_credits: number
+          id: string
+          lifetime_points: number
+          points_balance: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          eyebrow_threading_count?: number
+          free_eyebrow_credits?: number
+          id?: string
+          lifetime_points?: number
+          points_balance?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          eyebrow_threading_count?: number
+          free_eyebrow_credits?: number
+          id?: string
+          lifetime_points?: number
+          points_balance?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      loyalty_transactions: {
+        Row: {
+          created_at: string
+          customer_id: string
+          free_credits_delta: number
+          id: string
+          order_id: string | null
+          points_delta: number
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          free_credits_delta?: number
+          id?: string
+          order_id?: string | null
+          points_delta?: number
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          free_credits_delta?: number
+          id?: string
+          order_id?: string | null
+          points_delta?: number
+          reason?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
