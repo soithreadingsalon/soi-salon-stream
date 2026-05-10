@@ -1,50 +1,122 @@
-# Make the Customer Display Interactive
+# POS redesign + dual-device sync
 
-Right now `/customer-display` is read-only — it mirrors what the cashier sees but the customer can't touch anything. We'll add the two things a customer actually does at checkout: **pick a tip** and **confirm they're ready to pay**.
+Two big changes, shipped together because they share the same data layer.
 
-## How it will work in production
+---
 
-- **Cashier device** (iPad/laptop) runs `/pos` — staff add services, attach customer.
-- **Customer-facing device** (second tablet on a stand, facing the guest) runs `/customer-display` — same Wi-Fi, same login session. Both tabs sync live via the existing `BroadcastChannel` + `localStorage` bridge in `src/lib/pos-session.ts`.
-- Customer taps their tip and a big **"I'm Ready to Pay"** button. That signals the cashier, who then taps **Charge** (cash/card) on their side. Cashier always controls the actual money movement — customer just picks tip + confirms.
+## 1. Cashier screen — industry-standard layout
 
-(If the two devices are physically separate, BroadcastChannel/localStorage won't cross devices. For real two-device sync we'd need to upgrade to Supabase Realtime on the `orders` row — flagged below as a follow-up. For a single-device "flip the screen to the customer" flow, the current bridge works perfectly.)
+The current screen scrolls the whole page because the cart, tip controls, discount, and totals all stack vertically. We're moving to the Square / Toast / Clover pattern.
 
-## Changes
+**New layout (no page scroll):**
 
-### 1. `src/lib/pos-session.ts`
-Extend `PosSession` so the customer side can write back to the cashier:
-- `customerTipPct: number | null` and `customerTipCustom: number` — tip chosen on customer display
-- `customerReady: boolean` — true when customer taps "Ready to Pay"
-- Keep cashier's `tipPct`/`tipCustom` as-is. Cashier view shows whichever was set most recently (with a small "customer chose 20%" badge).
+```text
++------------------------------------------------------+
+| Top bar: search customer | register name | Customer  |
+|          loyalty chip    | pair code      View btn   |
++----------------------------+-------------------------+
+|                            |  CART                   |
+|  CATALOG (60-65%)          |  - item rows (scroll    |
+|  - category tabs (sticky)  |    inside cart only)    |
+|  - service grid, large     |  -----------------------|
+|    tap targets             |  Subtotal       $XX.XX  |
+|  - search                  |  Tax            $XX.XX  |
+|                            |  Total          $XX.XX  |
+|                            |  -----------------------|
+|                            |  [   CHARGE $XX.XX   ]  |
+|                            |  [ Clear ] [ Hold ]     |
++----------------------------+-------------------------+
+```
 
-### 2. `src/routes/customer-display.tsx`
-Add a tip picker + confirm button (only visible when cart has items and not yet paid):
+- The whole page is `h-screen` with `overflow-hidden`. Only the catalog grid and the cart item list scroll internally.
+- **Tip and discount move out of the cart** into the Charge dialog (and onto the customer tablet — see below). The cart is just items + totals + Charge.
+- Totals + Charge button are pinned to the bottom of the cart column.
+- On tablet/narrow widths the cart becomes a slide-up sheet triggered by a floating "Cart (3) — $42" pill, so the catalog gets the full screen.
 
-- **Tip section** (large, touch-friendly):
-  - Preset buttons: 15% / 18% / 20% / 25%, each showing the live $ amount
-  - "Custom $" numeric input
-  - "No tip" button
-  - Selected option gets gold ring, matches cashier styling
-- **"I'm Ready to Pay"** button — full-width, gold, large. When tapped:
-  - Sets `customerReady: true` and publishes session
-  - Button swaps to a "Waiting for cashier…" state with a subtle pulse
-- When `status === "paid"` it flips to the existing Thank You screen.
+**Charge dialog (cashier side):**
+- Opens when cashier taps Charge with at least one item.
+- Has an inline discount input (% or $) and a "Send to customer for tip + payment" primary action.
+- Once sent, the cashier screen **freezes** into a read-only "Waiting for customer…" overlay with two buttons: **Cancel & edit** (returns to cart, unlocks customer screen) and **Mark paid manually** (escape hatch if customer tablet fails).
 
-### 3. `src/routes/_authenticated/-pos/PosClient.tsx`
-- Subscribe to session updates (already publishing; now also reading customer-side fields).
-- When customer picks a tip, mirror it into cashier's `tipPct`/`tipCustom` so totals stay in sync, and show a small "Customer chose 20% tip" pill near the Tip section.
-- When `customerReady` flips true, show a green banner above the Charge buttons: **"Customer is ready to pay"**. Charge buttons remain the cashier's responsibility.
-- Reset `customerReady` and customer-side tip fields after a successful charge or cart clear.
+---
 
-## Out of scope (call out to user)
+## 2. True two-device sync
 
-- **True multi-device sync** across two physical tablets — needs Supabase Realtime on `orders`. Quick follow-up if you want it.
-- **Customer-initiated card payment** (customer taps their card on a Stripe Terminal reader without cashier action) — that's the real Stripe Terminal integration in the later round.
-- Quantity edits on customer side — intentionally kept cashier-only.
+Replace the current `BroadcastChannel` + `localStorage` bridge (same-browser only) with Supabase Realtime so two physical devices can share an order.
 
-## Files touched
+### Pairing — 4-digit code
 
-- `src/lib/pos-session.ts` — add customer-side fields
-- `src/routes/customer-display.tsx` — tip picker + ready-to-pay button
-- `src/routes/_authenticated/-pos/PosClient.tsx` — read customer choices, show ready banner
+- New table `register_sessions(id, code, register_name, active_order_id, paired_at, last_seen_at)`.
+- Cashier screen displays its register's pair code in the top bar (e.g. `4821`).
+- Customer tablet opens `/customer-display`, types the code once, and stays paired in `localStorage`. Re-entering the code anywhere re-pairs.
+
+### Live order = the `orders` row
+
+- Today the in-flight cart only lives in the cashier's React state. We make the open `orders` row (status `open`) the source of truth as soon as the first item is added, and write `order_items` directly. Both devices subscribe via Supabase Realtime to that order id.
+- Add a few columns to `orders` to carry the live UX state:
+  - `register_session_id uuid`
+  - `customer_tip_amount numeric`
+  - `customer_payment_method text` — `cash` | `card` | `zelle`
+  - `customer_paid_confirmed boolean`
+  - extend `order_status` enum with `awaiting_customer` and `awaiting_confirmation`.
+- Enable Realtime on `orders` and `order_items`.
+
+### Handoff flow
+
+```text
+cashier                          customer tablet
+-------                          ---------------
+adds items, taps Charge   -->    sees cart appear
+status = awaiting_customer       picks tip (% or $)
+cashier UI freezes               picks Cash / Card / Zelle
+                                 taps "I paid"  (self-checkout)
+                          <--    status = awaiting_confirmation
+sees "Customer paid via Cash"
+auto-creates payment row,
+status = completed,
+unfreezes, prints receipt        shows "Thank you!" 4s, resets
+```
+
+- "Customer fully self-checkout" per your choice: customer taps **I paid in cash**, **Sent on Zelle**, or **Tap to pay (card)**. Card is mocked as instant-success for now (real terminal later).
+- Cashier can hit **Cancel & edit** at any time before customer confirms — that flips status back to `open` and the customer tablet returns to a passive "waiting" view.
+- After completion the cashier screen auto-resets and the customer tablet shows a 4-second thank-you, then idle.
+
+### Customer tablet (`/customer-display`) becomes interactive
+
+- Pair-code entry screen if not paired.
+- Idle screen ("Welcome — please wait for your cashier") when no active order.
+- Live cart + loyalty chip when cashier is building the order.
+- Tip picker (15/18/20/25% + custom $ + No tip) + payment method buttons + big **I Paid** button when status is `awaiting_customer`.
+- Thank-you screen on completion.
+
+---
+
+## Files to touch
+
+**New**
+- `supabase/migrations/<ts>_register_sessions_and_live_orders.sql` — new table, enum extension, new columns, Realtime publication, RLS.
+- `src/lib/register-session.ts` — pair code helpers + Realtime subscribe to active order.
+- `src/components/pos/ChargeDialog.tsx` — discount + send-to-customer.
+- `src/components/pos/WaitingOverlay.tsx` — frozen cashier overlay.
+- `src/components/pos/MobileCartSheet.tsx` — cart-as-sheet for narrow viewports.
+
+**Edited**
+- `src/routes/_authenticated/-pos/PosClient.tsx` — full layout rewrite (catalog 60% / cart 35% / no page scroll), persist cart to `orders`/`order_items` instead of local state, replace `BroadcastChannel` with Realtime channel, freeze on `awaiting_customer`.
+- `src/routes/customer-display.tsx` — pair-code gate, Realtime subscription, tip picker, payment buttons, "I paid" CTA.
+- `src/lib/pos-session.ts` — gutted (or removed) once Realtime path is in place.
+- `src/routes/_authenticated/settings.*` (or a small new screen) — assign register name + show/regenerate pair code.
+
+## Out of scope (call out so you're not surprised)
+
+- Real Stripe Terminal / real Zelle verification — Card is a mock confirm; Zelle and Cash are honor-system "I paid" taps. Hooking real processors is a separate story.
+- Offline mode — both devices need internet for Realtime.
+- Multiple concurrent open orders per register (park / resume) — sticking with one active order per register for now.
+
+## How you'll test in Lovable preview
+
+1. Open `/pos` in one tab — note the 4-digit pair code in the top bar.
+2. Open `/customer-display` in a second tab (or a phone on the same Wi-Fi using the deployed URL) — enter the code.
+3. Add items on cashier → they appear on customer tab live.
+4. Tap **Charge** → cashier freezes, customer sees tip + payment buttons.
+5. Pick tip + Cash + **I paid** → cashier auto-completes, both reset.
+6. Try **Cancel & edit** mid-flow → cashier unfreezes, customer goes back to passive view.
