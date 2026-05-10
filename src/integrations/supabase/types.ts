@@ -452,6 +452,7 @@ export type Database = {
           created_at: string
           id: string
           last_seen_at: string
+          live_cart: Json
           paired_at: string | null
           register_name: string
           updated_at: string
@@ -462,6 +463,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_seen_at?: string
+          live_cart?: Json
           paired_at?: string | null
           register_name?: string
           updated_at?: string
@@ -472,6 +474,7 @@ export type Database = {
           created_at?: string
           id?: string
           last_seen_at?: string
+          live_cart?: Json
           paired_at?: string | null
           register_name?: string
           updated_at?: string
