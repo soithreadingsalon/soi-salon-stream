@@ -274,18 +274,30 @@ export function PosClient() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col gap-3 p-3 md:p-4">
-      {/* TOP CUSTOMER BAR — always visible */}
-      <CustomerBar
-        customer={customer}
-        loyalty={loyalty ?? null}
-        onClear={() => setCustomer(null)}
-        onPick={() => setCustDialog(true)}
-        onRedeemFreeEyebrow={() =>
-          eyebrowService && addService(eyebrowService, { free: true })
-        }
-        cart={cart}
-      />
-
+      {/* TOP BAR — customer + customer-display launcher */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+        <div className="flex-1">
+          <CustomerBar
+            customer={customer}
+            loyalty={loyalty ?? null}
+            onClear={() => setCustomer(null)}
+            onPick={() => setCustDialog(true)}
+            onRedeemFreeEyebrow={() =>
+              eyebrowService && addService(eyebrowService, { free: true })
+            }
+            cart={cart}
+          />
+        </div>
+        <Button
+          variant="outline"
+          onClick={openCustomerView}
+          title="Open the customer-facing display in a new window"
+          className="h-auto gap-2 border-gold/60 px-4 text-foreground hover:bg-gold/10"
+        >
+          <Monitor className="h-4 w-4 text-gold" />
+          Customer View
+        </Button>
+      </div>
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[1fr_380px]">
         {/* CATALOG */}
         <Card className="flex flex-col overflow-hidden border-border/60 shadow-soft">
