@@ -7,6 +7,18 @@ import { Printer } from "lucide-react";
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
+// 58mm thermal printers fit ~32 monospace chars per line at this size.
+const LINE_CHARS = 32;
+const padLine = (left: string, right: string) => {
+  const space = Math.max(1, LINE_CHARS - left.length - right.length);
+  return left + " ".repeat(space) + right;
+};
+const centerLine = (s: string) => {
+  if (s.length >= LINE_CHARS) return s.slice(0, LINE_CHARS);
+  const pad = Math.floor((LINE_CHARS - s.length) / 2);
+  return " ".repeat(pad) + s;
+};
+
 export function ReceiptDialog({
   orderId,
   onClose,
@@ -25,7 +37,19 @@ export function ReceiptDialog({
         supabase.from("order_items").select("*").eq("order_id", orderId!),
         supabase.from("payments").select("*").eq("order_id", orderId!),
       ]);
-      return { order, items: items ?? [], payments: payments ?? [] };
+      let cashier_name: string | null = null;
+      let customer_name: string | null = null;
+      if (order?.cashier_id) {
+        const { data: c } = await supabase.from("profiles")
+          .select("full_name,email").eq("id", order.cashier_id).maybeSingle();
+        cashier_name = c?.full_name ?? c?.email ?? null;
+      }
+      if (order?.customer_id) {
+        const { data: cu } = await supabase.from("customers")
+          .select("full_name").eq("id", order.customer_id).maybeSingle();
+        customer_name = cu?.full_name ?? null;
+      }
+      return { order, items: items ?? [], payments: payments ?? [], cashier_name, customer_name };
     },
   });
 
@@ -37,47 +61,79 @@ export function ReceiptDialog({
         <DialogHeader>
           <DialogTitle className="text-center font-display text-xl">Receipt</DialogTitle>
         </DialogHeader>
-        <div id="receipt-print" className="space-y-3 rounded-md border border-border bg-cream p-5 font-mono text-xs">
+        <div id="receipt-print" className="receipt-58mm space-y-1 rounded-md border border-border bg-white p-3 text-black">
           <div className="text-center">
-            <div className="font-display text-lg font-semibold">{settings?.business_name}</div>
-            <div className="text-[10px]">{settings?.address}</div>
-            <div className="text-[10px]">{settings?.phone} · {settings?.website}</div>
+            <div className="receipt-bus-name">{settings?.business_name}</div>
+            {settings?.address && <div>{settings.address}</div>}
+            {settings?.phone && <div>{settings.phone}</div>}
+            {settings?.website && <div>{settings.website}</div>}
           </div>
-          <hr className="border-dashed border-border" />
-          <div className="space-y-1">
-            {data?.items.map((i) => (
-              <div key={i.id} className="flex justify-between">
-                <span>{i.quantity}× {i.service_name}</span>
-                <span>{fmt(Number(i.unit_price) * i.quantity)}</span>
-              </div>
-            ))}
-          </div>
-          <hr className="border-dashed border-border" />
+
+          <div className="receipt-sep">{"-".repeat(LINE_CHARS)}</div>
+
           {data?.order && (
-            <div className="space-y-0.5">
-              <RowR l="Subtotal" v={fmt(Number(data.order.subtotal))} />
-              {Number(data.order.discount_total) > 0 && <RowR l="Discount" v={`-${fmt(Number(data.order.discount_total))}`} />}
-              <RowR l="Tax" v={fmt(Number(data.order.tax_total))} />
-              {Number(data.order.tip_total) > 0 && <RowR l="Tip" v={fmt(Number(data.order.tip_total))} />}
-              <div className="mt-1 flex justify-between font-semibold">
-                <span>TOTAL</span><span>{fmt(Number(data.order.total))}</span>
-              </div>
+            <>
+              <div>{padLine(`Order #${data.order.order_number}`, new Date(data.order.completed_at ?? data.order.created_at).toLocaleDateString())}</div>
+              <div>{padLine("", new Date(data.order.completed_at ?? data.order.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</div>
+              {data.cashier_name && <div>Served by: {data.cashier_name}</div>}
+              {data.customer_name && <div>Customer: {data.customer_name}</div>}
+            </>
+          )}
+
+          <div className="receipt-sep">{"-".repeat(LINE_CHARS)}</div>
+
+          <div>
+            {data?.items.map((i) => {
+              const line = `${i.quantity}x ${i.service_name}`;
+              const price = fmt(Number(i.unit_price) * i.quantity);
+              // wrap long item names
+              if (line.length + price.length + 1 > LINE_CHARS) {
+                return (
+                  <div key={i.id}>
+                    <div>{line}</div>
+                    <div>{padLine("", price)}</div>
+                  </div>
+                );
+              }
+              return <div key={i.id}>{padLine(line, price)}</div>;
+            })}
+          </div>
+
+          <div className="receipt-sep">{"-".repeat(LINE_CHARS)}</div>
+
+          {data?.order && (
+            <div>
+              <div>{padLine("Subtotal", fmt(Number(data.order.subtotal)))}</div>
+              {Number(data.order.discount_total) > 0 && (
+                <div>{padLine("Discount", `-${fmt(Number(data.order.discount_total))}`)}</div>
+              )}
+              <div>{padLine("Tax", fmt(Number(data.order.tax_total)))}</div>
+              {Number(data.order.tip_total) > 0 && (
+                <div>{padLine("Tip", fmt(Number(data.order.tip_total)))}</div>
+              )}
+              <div className="receipt-total">{padLine("TOTAL", fmt(Number(data.order.total)))}</div>
             </div>
           )}
-          <hr className="border-dashed border-border" />
+
+          <div className="receipt-sep">{"-".repeat(LINE_CHARS)}</div>
+
           {data?.payments.map((p) => (
-            <div key={p.id} className="flex justify-between">
-              <span>{p.method.toUpperCase()}{p.card_last4 ? ` •••• ${p.card_last4}` : ""}</span>
-              <span>{fmt(Number(p.amount))}</span>
+            <div key={p.id}>
+              {padLine(
+                `${p.method.toUpperCase()}${p.card_last4 ? ` ${p.card_last4}` : ""}${p.external_reference ? ` (${p.external_reference})` : ""}`,
+                fmt(Number(p.amount)),
+              )}
             </div>
           ))}
-          {data?.order && (
-            <div className="text-center text-[9px] text-muted-foreground">
-              Order #{data.order.order_number} · {new Date(data.order.completed_at!).toLocaleString()}
-            </div>
+
+          <div className="receipt-sep">{"-".repeat(LINE_CHARS)}</div>
+
+          {settings?.receipt_footer && (
+            <div className="text-center receipt-footer">{settings.receipt_footer}</div>
           )}
-          <div className="text-center text-[10px] italic">{settings?.receipt_footer}</div>
+          <div className="text-center">{centerLine("Thank you!")}</div>
         </div>
+
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="mr-2 h-4 w-4" /> Print
@@ -89,8 +145,4 @@ export function ReceiptDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-function RowR({ l, v }: { l: string; v: string }) {
-  return <div className="flex justify-between"><span>{l}</span><span>{v}</span></div>;
 }
