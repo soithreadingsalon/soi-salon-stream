@@ -151,13 +151,15 @@ function LoginPage() {
 }
 
 function AdminLogin({ onBack, navigate }: { onBack: () => void; navigate: ReturnType<typeof useNavigate> }) {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
+      // Allow either plain username (e.g. "SOI") or full email
+      const email = username.includes("@") ? username.trim() : `${username.trim().toLowerCase()}@soi.local`;
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       navigate({ to: "/dashboard" });
@@ -174,9 +176,9 @@ function AdminLogin({ onBack, navigate }: { onBack: () => void; navigate: Return
       <CardContent>
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email}
-              onChange={(e) => setEmail(e.target.value)} className="h-11" />
+            <Label htmlFor="username">Username or email</Label>
+            <Input id="username" type="text" required value={username} autoCapitalize="none" autoCorrect="off"
+              onChange={(e) => setUsername(e.target.value)} className="h-11" placeholder="SOI" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">Password</Label>
