@@ -143,12 +143,19 @@ function WorkersTab() {
   const { data: workers = [] } = useQuery({
     queryKey: ["workers_admin"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: pins, error } = await supabase
         .from("worker_pins")
-        .select("user_id, display_name, active, created_at, profiles:user_id(full_name, email)")
+        .select("user_id, display_name, active, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      const ids = (pins ?? []).map((p) => p.user_id);
+      if (ids.length === 0) return [];
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", ids);
+      const byId = new Map((profs ?? []).map((p: any) => [p.id, p]));
+      return (pins ?? []).map((p: any) => ({ ...p, profiles: byId.get(p.user_id) ?? null }));
     },
   });
 
