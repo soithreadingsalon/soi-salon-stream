@@ -32,8 +32,8 @@ function LoginPage() {
   const { data: workers = [], isLoading } = useQuery({
     queryKey: ["workers_public"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("workers_public" as any)
+      const { data, error } = await (supabase as any)
+        .from("workers_public")
         .select("id,display_name,active")
         .order("display_name");
       if (error) throw error;
