@@ -90,8 +90,17 @@ export const upsertWorkerPin = createServerFn({ method: "POST" })
         email_confirm: true,
         user_metadata: { full_name: data.fullName },
       });
-      if (cErr || !created.user) throw new Error(cErr?.message ?? "Create failed");
-      userId = created.user.id;
+      if (created?.user) {
+        userId = created.user.id;
+      } else if (cErr && /already.*registered|already exists/i.test(cErr.message)) {
+        // Reuse the existing auth user with this email
+        const { data: list } = await supabaseAdmin.auth.admin.listUsers();
+        const existing = list?.users.find((u) => u.email?.toLowerCase() === data.email!.toLowerCase());
+        if (!existing) throw new Error(cErr.message);
+        userId = existing.id;
+      } else {
+        throw new Error(cErr?.message ?? "Create failed");
+      }
       // Ensure profile + cashier role (handle_new_user trigger covers this, but be safe)
       await supabaseAdmin.from("profiles").upsert({
         id: userId, email: data.email, full_name: data.fullName,
