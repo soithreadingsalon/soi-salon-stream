@@ -176,9 +176,9 @@ function AdminLogin({ onBack, navigate }: { onBack: () => void; navigate: Return
       <CardContent>
         <form onSubmit={submit} className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email}
-              onChange={(e) => setEmail(e.target.value)} className="h-11" />
+            <Label htmlFor="username">Username or email</Label>
+            <Input id="username" type="text" required value={username} autoCapitalize="none" autoCorrect="off"
+              onChange={(e) => setUsername(e.target.value)} className="h-11" placeholder="SOI" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">Password</Label>
