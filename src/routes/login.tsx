@@ -151,13 +151,15 @@ function LoginPage() {
 }
 
 function AdminLogin({ onBack, navigate }: { onBack: () => void; navigate: ReturnType<typeof useNavigate> }) {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
+      // Allow either plain username (e.g. "SOI") or full email
+      const email = username.includes("@") ? username.trim() : `${username.trim().toLowerCase()}@soi.local`;
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       navigate({ to: "/dashboard" });
