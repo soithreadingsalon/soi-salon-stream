@@ -159,3 +159,34 @@
   .border-gold { border-color: var(--gold); }
   .ring-gold { --tw-ring-color: var(--gold); }
 }
+
+/* 58mm thermal receipt — on-screen preview uses monospace; print rules below */
+.receipt-58mm {
+  font-family: "Courier New", "Menlo", "Consolas", monospace;
+  font-size: 12pt;
+  line-height: 1.25;
+  white-space: pre;
+  width: 58mm;
+  margin: 0 auto;
+  color: #000;
+  background: #fff;
+}
+.receipt-58mm .receipt-bus-name { font-size: 14pt; font-weight: 700; }
+.receipt-58mm .receipt-total { font-size: 14pt; font-weight: 700; margin-top: 2px; }
+.receipt-58mm .receipt-sep { letter-spacing: 0; }
+.receipt-58mm .receipt-footer { font-size: 10pt; font-style: italic; }
+
+@media print {
+  @page { size: 58mm auto; margin: 2mm; }
+  body * { visibility: hidden !important; }
+  #receipt-print, #receipt-print * { visibility: visible !important; }
+  #receipt-print {
+    position: absolute;
+    top: 0; left: 0;
+    width: 58mm;
+    border: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

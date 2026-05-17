@@ -290,14 +290,10 @@ export type Database = {
           completed_at: string | null
           created_at: string
           customer_id: string | null
-          customer_paid_confirmed: boolean
-          customer_payment_method: string | null
-          customer_tip_amount: number
           discount_total: number
           id: string
           notes: string | null
           order_number: number
-          register_session_id: string | null
           status: Database["public"]["Enums"]["order_status"]
           subtotal: number
           tax_total: number
@@ -310,14 +306,10 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           customer_id?: string | null
-          customer_paid_confirmed?: boolean
-          customer_payment_method?: string | null
-          customer_tip_amount?: number
           discount_total?: number
           id?: string
           notes?: string | null
           order_number?: number
-          register_session_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           tax_total?: number
@@ -330,14 +322,10 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           customer_id?: string | null
-          customer_paid_confirmed?: boolean
-          customer_payment_method?: string | null
-          customer_tip_amount?: number
           discount_total?: number
           id?: string
           notes?: string | null
           order_number?: number
-          register_session_id?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           subtotal?: number
           tax_total?: number
@@ -351,13 +339,6 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_register_session_id_fkey"
-            columns: ["register_session_id"]
-            isOneToOne: false
-            referencedRelation: "register_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -441,42 +422,6 @@ export type Database = {
           full_name?: string | null
           id?: string
           phone?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      register_sessions: {
-        Row: {
-          active_order_id: string | null
-          code: string
-          created_at: string
-          id: string
-          last_seen_at: string
-          live_cart: Json
-          paired_at: string | null
-          register_name: string
-          updated_at: string
-        }
-        Insert: {
-          active_order_id?: string | null
-          code: string
-          created_at?: string
-          id?: string
-          last_seen_at?: string
-          live_cart?: Json
-          paired_at?: string | null
-          register_name?: string
-          updated_at?: string
-        }
-        Update: {
-          active_order_id?: string | null
-          code?: string
-          created_at?: string
-          id?: string
-          last_seen_at?: string
-          live_cart?: Json
-          paired_at?: string | null
-          register_name?: string
           updated_at?: string
         }
         Relationships: []
@@ -594,9 +539,46 @@ export type Database = {
         }
         Relationships: []
       }
+      worker_pins: {
+        Row: {
+          active: boolean
+          created_at: string
+          display_name: string | null
+          pin_hash: string
+          pin_salt: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          display_name?: string | null
+          pin_hash: string
+          pin_salt: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          display_name?: string | null
+          pin_hash?: string
+          pin_salt?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      workers_public: {
+        Row: {
+          active: boolean | null
+          display_name: string | null
+          id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_any_role: {
@@ -611,6 +593,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      verify_worker_pin: {
+        Args: { _pin: string; _user_id: string }
         Returns: boolean
       }
     }
