@@ -6,6 +6,7 @@ import {
   Sparkles,
   Settings,
   LogOut,
+  History,
 } from "lucide-react";
 import {
   Sidebar,
@@ -24,9 +25,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "./ui/button";
 
 const items = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["super_admin", "admin", "manager", "cashier", "staff"] },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["super_admin", "admin", "manager"] },
   { title: "POS Checkout", url: "/pos", icon: ShoppingBag, roles: ["super_admin", "admin", "manager", "cashier"] },
-  { title: "Customers", url: "/customers", icon: Users, roles: ["super_admin", "admin", "manager", "cashier"] },
+  { title: "My Sales", url: "/my-sales", icon: History, roles: ["cashier"] },
+  { title: "Customers", url: "/customers", icon: Users, roles: ["super_admin", "admin", "manager"] },
   { title: "Services", url: "/services", icon: Sparkles, roles: ["super_admin", "admin"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["super_admin", "admin"] },
 ] as const;

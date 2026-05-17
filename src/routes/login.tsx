@@ -48,9 +48,9 @@ function LoginPage() {
     (async () => {
       setBusy(true);
       try {
-        const { email, token_hash } = await callSignIn({ data: { workerId: picked.id, pin } });
+        const { token_hash } = await callSignIn({ data: { workerId: picked.id, pin } });
         const { error } = await supabase.auth.verifyOtp({
-          type: "magiclink", token_hash, email,
+          type: "magiclink", token_hash,
         } as any);
         if (error) throw error;
         toast.success(`Welcome, ${picked.display_name}`);
