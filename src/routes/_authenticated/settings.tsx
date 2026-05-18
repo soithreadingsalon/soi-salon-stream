@@ -39,12 +39,14 @@ function SettingsPage() {
           <TabsTrigger value="workers">Workers & PINs</TabsTrigger>
           <TabsTrigger value="catalog">Services</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
+          <TabsTrigger value="recycle">Recycle Bin</TabsTrigger>
         </TabsList>
 
         <TabsContent value="business" className="pt-6"><BusinessTab /></TabsContent>
         <TabsContent value="workers"  className="pt-6"><WorkersTab /></TabsContent>
         <TabsContent value="catalog"  className="pt-6"><QuickLink to="/services" label="Open service catalog editor" /></TabsContent>
         <TabsContent value="customers" className="pt-6"><QuickLink to="/customers" label="Open customer directory" /></TabsContent>
+        <TabsContent value="recycle"   className="pt-6"><RecycleBinTab /></TabsContent>
       </Tabs>
     </div>
   );
