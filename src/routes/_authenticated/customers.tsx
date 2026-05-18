@@ -178,10 +178,8 @@ function CustomerDialog({
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Reset form whenever dialog opens with a different target
-  if (open) {
-    // intentionally lightweight: track current id via key prop below instead
-  }
+
+
 
   return (
     <Dialog
