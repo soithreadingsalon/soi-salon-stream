@@ -41,8 +41,6 @@ function LoginPage() {
     },
   });
 
-  if (!loading && user) return <Navigate to="/dashboard" />;
-
   useEffect(() => {
     if (pin.length !== 4 || !picked || busy) return;
     (async () => {
