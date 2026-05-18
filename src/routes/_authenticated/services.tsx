@@ -22,6 +22,7 @@ function ServicesAdmin() {
   const [active, setActive] = useState<string | null>(null);
   const [editing, setEditing] = useState<any | null>(null);
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState<any | null>(null);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["cats-admin"],
@@ -44,12 +45,26 @@ function ServicesAdmin() {
   const currentCatId = active ?? cats[0]?.id;
   const visible = services.filter((s: any) => s.category_id === currentCatId);
 
-  const delMut = useMutation({
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["services-admin"] });
+    qc.invalidateQueries({ queryKey: ["services"] });
+  };
+
+  const softDel = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("services").delete().eq("id", id);
+      const { error } = await supabase.rpc("soft_delete_service", { _id: id });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Service deleted"); qc.invalidateQueries({ queryKey: ["services-admin"] }); qc.invalidateQueries({ queryKey: ["services"] }); },
+    onSuccess: () => { toast.success("Moved to Recycle Bin"); invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const hardDel = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("hard_delete_service", { _id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Service permanently deleted"); invalidate(); },
     onError: (e: any) => toast.error(e.message),
   });
 
