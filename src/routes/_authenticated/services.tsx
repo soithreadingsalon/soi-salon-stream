@@ -116,7 +116,7 @@ function ServicesAdmin() {
                     <Button size="icon" variant="ghost" onClick={() => { setEditing(s); setOpen(true); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" onClick={() => confirm(`Delete ${s.name}?`) && delMut.mutate(s.id)}>
+                    <Button size="icon" variant="ghost" onClick={() => setDeleting(s)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </td>
@@ -127,7 +127,17 @@ function ServicesAdmin() {
         </CardContent>
       </Card>
 
-      {editing && <EditDialog open={open} setOpen={setOpen} editing={editing} onSaved={() => { qc.invalidateQueries({ queryKey: ["services-admin"] }); qc.invalidateQueries({ queryKey: ["services"] }); }} />}
+      {editing && <EditDialog open={open} setOpen={setOpen} editing={editing} onSaved={invalidate} />}
+
+      {deleting && (
+        <ConfirmDeleteDialog
+          open={!!deleting}
+          onOpenChange={(b) => !b && setDeleting(null)}
+          entityLabel={`service "${deleting.name}"`}
+          onSoftDelete={() => softDel.mutateAsync(deleting.id)}
+          onHardDelete={() => hardDel.mutateAsync(deleting.id)}
+        />
+      )}
     </div>
   );
 }
