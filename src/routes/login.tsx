@@ -60,6 +60,8 @@ function LoginPage() {
     })();
   }, [pin, picked, busy, callSignIn, navigate]);
 
+  if (!loading && user) return <Navigate to="/dashboard" />;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-cream px-4 py-10">
       <div className="w-full max-w-md space-y-6">
