@@ -534,7 +534,7 @@ function CheckoutPanel({
         <div>
           <Label className="text-sm font-semibold">Tip</Label>
           <div className="mt-1.5 grid grid-cols-4 gap-1.5">
-            {[15, 18, 20, 25].map((p) => {
+            {(tipPresets as number[]).map((p) => {
               const active = tipPct === p && tipCustom === 0;
               return (
                 <button key={p}
