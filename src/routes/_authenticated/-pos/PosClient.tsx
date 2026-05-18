@@ -95,6 +95,16 @@ export function PosClient() {
     },
   });
 
+  useEffect(() => {
+    if (settings?.currency) fmt = makeFmt(settings.currency);
+  }, [settings?.currency]);
+
+  const tipPresets: number[] = useMemo(() => {
+    const raw = (settings?.tip_presets ?? [15, 18, 20]) as any[];
+    const arr = Array.isArray(raw) ? raw.map((n) => Number(n)).filter((n) => !isNaN(n) && n > 0) : [];
+    return arr.length ? arr.slice(0, 4) : [15, 18, 20];
+  }, [settings?.tip_presets]);
+
   const { data: loyalty } = useQuery<Loyalty | null>({
     queryKey: ["loyalty", customer?.id],
     enabled: !!customer?.id,
