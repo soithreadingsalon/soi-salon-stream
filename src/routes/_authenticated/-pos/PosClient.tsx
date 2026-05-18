@@ -533,7 +533,7 @@ function CheckoutPanel({
         {/* Tip */}
         <div>
           <Label className="text-sm font-semibold">Tip</Label>
-          <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+          <div className={`mt-1.5 grid gap-1.5 grid-cols-${Math.max(2, Math.min(4, (tipPresets as number[]).length))}`}>
             {(tipPresets as number[]).map((p) => {
               const active = tipPct === p && tipCustom === 0;
               return (
