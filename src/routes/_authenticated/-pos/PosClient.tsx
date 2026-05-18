@@ -360,6 +360,7 @@ export function PosClient() {
               totalDiscount={totalDiscount} tax={tax} tip={tip}
               baseForTip={baseForTip} grandTotal={grandTotal}
               tipPct={tipPct} setTipPct={setTipPct}
+              tipPresets={tipPresets}
               tipCustom={tipCustom} setTipCustom={setTipCustom}
               method={method} setMethod={setMethod}
               tendered={tendered} setTendered={setTendered}
