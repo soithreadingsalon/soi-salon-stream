@@ -53,6 +53,8 @@ export function ReceiptDialog({
     },
   });
 
+  const fmt = makeFmt(settings?.currency ?? "USD");
+
   if (!orderId) return null;
 
   return (
