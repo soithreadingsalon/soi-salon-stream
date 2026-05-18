@@ -37,8 +37,9 @@ type CartItem = {
 };
 type PayMethod = "cash" | "card" | "zelle";
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+const makeFmt = (currency: string) => (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(n);
+let fmt = makeFmt("USD");
 
 const ICONS: Record<string, any> = {
   sparkles: Sparkles, flame: Flame, flower: Flower, scissors: Scissors,
@@ -93,6 +94,16 @@ export function PosClient() {
       if (error) throw error; return data;
     },
   });
+
+  useEffect(() => {
+    if (settings?.currency) fmt = makeFmt(settings.currency);
+  }, [settings?.currency]);
+
+  const tipPresets: number[] = useMemo(() => {
+    const raw = (settings?.tip_presets ?? [15, 18, 20]) as any[];
+    const arr = Array.isArray(raw) ? raw.map((n) => Number(n)).filter((n) => !isNaN(n) && n > 0) : [];
+    return arr.length ? arr.slice(0, 4) : [15, 18, 20];
+  }, [settings?.tip_presets]);
 
   const { data: loyalty } = useQuery<Loyalty | null>({
     queryKey: ["loyalty", customer?.id],
@@ -349,6 +360,7 @@ export function PosClient() {
               totalDiscount={totalDiscount} tax={tax} tip={tip}
               baseForTip={baseForTip} grandTotal={grandTotal}
               tipPct={tipPct} setTipPct={setTipPct}
+              tipPresets={tipPresets}
               tipCustom={tipCustom} setTipCustom={setTipCustom}
               method={method} setMethod={setMethod}
               tendered={tendered} setTendered={setTendered}
@@ -459,7 +471,7 @@ function CheckoutPanel({
   loyalty, maxRedeemable, pointsRedeem, setPointsRedeem,
   canRedeemFree, onAddFreeEyebrow,
   totalDiscount, tax, tip, baseForTip, grandTotal,
-  tipPct, setTipPct, tipCustom, setTipCustom,
+  tipPct, setTipPct, tipPresets, tipCustom, setTipCustom,
   method, setMethod, tendered, setTendered,
   pending, onBack, onComplete,
 }: any) {
@@ -521,8 +533,8 @@ function CheckoutPanel({
         {/* Tip */}
         <div>
           <Label className="text-sm font-semibold">Tip</Label>
-          <div className="mt-1.5 grid grid-cols-4 gap-1.5">
-            {[15, 18, 20, 25].map((p) => {
+          <div className={`mt-1.5 grid gap-1.5 ${(tipPresets as number[]).length >= 4 ? "grid-cols-4" : (tipPresets as number[]).length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+            {(tipPresets as number[]).map((p) => {
               const active = tipPct === p && tipCustom === 0;
               return (
                 <button key={p}

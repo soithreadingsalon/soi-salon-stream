@@ -4,8 +4,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+const makeFmt = (currency: string) => (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(n);
 
 // 58mm thermal printers fit ~32 monospace chars per line at this size.
 const LINE_CHARS = 32;
@@ -52,6 +52,8 @@ export function ReceiptDialog({
       return { order, items: items ?? [], payments: payments ?? [], cashier_name, customer_name };
     },
   });
+
+  const fmt = makeFmt(settings?.currency ?? "USD");
 
   if (!orderId) return null;
 

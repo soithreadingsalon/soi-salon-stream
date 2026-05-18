@@ -36,6 +36,14 @@ function Dashboard() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const { data: settings } = useQuery({
+    queryKey: ["business_settings"],
+    queryFn: async () => {
+      const { data } = await supabase.from("business_settings").select("business_name,currency").limit(1).maybeSingle();
+      return data;
+    },
+  });
+
   const { data: stats } = useQuery({
     queryKey: ["dashboard-today"],
     queryFn: async () => {
@@ -60,14 +68,15 @@ function Dashboard() {
     },
   });
 
+  const currency = settings?.currency || "USD";
   const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+    new Intl.NumberFormat("en-US", { style: "currency", currency }).format(n);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight">Today at SOI</h1>
+          <h1 className="font-display text-3xl font-semibold tracking-tight">Today at {settings?.business_name || "your salon"}</h1>
           <p className="text-sm text-muted-foreground">
             {today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </p>
