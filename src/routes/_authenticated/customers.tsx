@@ -158,8 +158,6 @@ function CustomerDialog({
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [marketing, setMarketing] = useState(!!editing?.marketing_opt_in);
 
-  // re-sync when editing target changes
-  useState(() => undefined);
 
   const mut = useMutation({
     mutationFn: async () => {
