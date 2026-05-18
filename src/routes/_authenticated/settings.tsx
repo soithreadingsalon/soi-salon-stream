@@ -23,8 +23,8 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 function SettingsPage() {
-  const { hasRole, loading } = useAuth();
-  if (loading) return <div className="p-8">Loading…</div>;
+  const { hasRole, loading, rolesLoading, user } = useAuth();
+  if (loading || (user && rolesLoading)) return <div className="p-8">Loading…</div>;
   if (!hasRole("super_admin", "admin")) return <Navigate to="/dashboard" />;
 
   return (
