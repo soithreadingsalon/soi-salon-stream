@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 
 export const Route = createFileRoute("/_authenticated/services")({
   component: ServicesAdmin,
@@ -21,6 +22,7 @@ function ServicesAdmin() {
   const [active, setActive] = useState<string | null>(null);
   const [editing, setEditing] = useState<any | null>(null);
   const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState<any | null>(null);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["cats-admin"],
@@ -43,12 +45,26 @@ function ServicesAdmin() {
   const currentCatId = active ?? cats[0]?.id;
   const visible = services.filter((s: any) => s.category_id === currentCatId);
 
-  const delMut = useMutation({
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["services-admin"] });
+    qc.invalidateQueries({ queryKey: ["services"] });
+  };
+
+  const softDel = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("services").delete().eq("id", id);
+      const { error } = await supabase.rpc("soft_delete_service", { _id: id });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Service deleted"); qc.invalidateQueries({ queryKey: ["services-admin"] }); qc.invalidateQueries({ queryKey: ["services"] }); },
+    onSuccess: () => { toast.success("Moved to Recycle Bin"); invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const hardDel = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc("hard_delete_service", { _id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Service permanently deleted"); invalidate(); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -100,7 +116,7 @@ function ServicesAdmin() {
                     <Button size="icon" variant="ghost" onClick={() => { setEditing(s); setOpen(true); }}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" onClick={() => confirm(`Delete ${s.name}?`) && delMut.mutate(s.id)}>
+                    <Button size="icon" variant="ghost" onClick={() => setDeleting(s)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </td>
@@ -111,7 +127,17 @@ function ServicesAdmin() {
         </CardContent>
       </Card>
 
-      {editing && <EditDialog open={open} setOpen={setOpen} editing={editing} onSaved={() => { qc.invalidateQueries({ queryKey: ["services-admin"] }); qc.invalidateQueries({ queryKey: ["services"] }); }} />}
+      {editing && <EditDialog open={open} setOpen={setOpen} editing={editing} onSaved={invalidate} />}
+
+      {deleting && (
+        <ConfirmDeleteDialog
+          open={!!deleting}
+          onOpenChange={(b) => !b && setDeleting(null)}
+          entityLabel={`service "${deleting.name}"`}
+          onSoftDelete={() => softDel.mutateAsync(deleting.id)}
+          onHardDelete={() => hardDel.mutateAsync(deleting.id)}
+        />
+      )}
     </div>
   );
 }

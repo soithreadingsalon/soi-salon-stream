@@ -15,7 +15,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, KeyRound, UserX, ExternalLink } from "lucide-react";
+import { Plus, KeyRound, UserX, ExternalLink, Undo2, Trash2 } from "lucide-react";
 import { upsertWorkerPin, deactivateWorker } from "@/lib/worker-auth.functions";
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -39,12 +39,14 @@ function SettingsPage() {
           <TabsTrigger value="workers">Workers & PINs</TabsTrigger>
           <TabsTrigger value="catalog">Services</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
+          <TabsTrigger value="recycle">Recycle Bin</TabsTrigger>
         </TabsList>
 
         <TabsContent value="business" className="pt-6"><BusinessTab /></TabsContent>
         <TabsContent value="workers"  className="pt-6"><WorkersTab /></TabsContent>
         <TabsContent value="catalog"  className="pt-6"><QuickLink to="/services" label="Open service catalog editor" /></TabsContent>
         <TabsContent value="customers" className="pt-6"><QuickLink to="/customers" label="Open customer directory" /></TabsContent>
+        <TabsContent value="recycle"   className="pt-6"><RecycleBinTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -268,5 +270,145 @@ function WorkerDialog({ open, setOpen, state, onSave }: { open: boolean; setOpen
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* ─────────────────────────── RECYCLE BIN ─────────────────────────── */
+
+function RecycleBinTab() {
+  return (
+    <div className="space-y-6">
+      <DeletedList
+        title="Deleted customers"
+        emptyLabel="No deleted customers"
+        queryKey="customers_deleted"
+        table="customers_deleted"
+        labelFor={(r) => r.full_name}
+        restoreRpc="restore_customer"
+        hardRpc="hard_delete_customer"
+        invalidateKeys={[["customers"]]}
+        columns={[
+          { header: "Name",  cell: (r) => r.full_name },
+          { header: "Phone", cell: (r) => r.phone ?? "—" },
+          { header: "Email", cell: (r) => r.email ?? "—" },
+        ]}
+      />
+      <DeletedList
+        title="Deleted services"
+        emptyLabel="No deleted services"
+        queryKey="services_deleted"
+        table="services_deleted"
+        labelFor={(r) => r.name}
+        restoreRpc="restore_service"
+        hardRpc="hard_delete_service"
+        invalidateKeys={[["services-admin"], ["services"]]}
+        columns={[
+          { header: "Service", cell: (r) => r.name },
+          { header: "Price",   cell: (r) => `$${Number(r.price).toFixed(2)}` },
+          { header: "Active",  cell: (r) => (r.active ? "✓" : "—") },
+        ]}
+      />
+    </div>
+  );
+}
+
+interface DeletedListProps {
+  title: string;
+  emptyLabel: string;
+  queryKey: string;
+  table: "customers_deleted" | "services_deleted";
+  labelFor: (row: any) => string;
+  restoreRpc: "restore_customer" | "restore_service";
+  hardRpc: "hard_delete_customer" | "hard_delete_service";
+  invalidateKeys: string[][];
+  columns: { header: string; cell: (row: any) => React.ReactNode }[];
+}
+
+function DeletedList({
+  title, emptyLabel, queryKey, table, labelFor, restoreRpc, hardRpc, invalidateKeys, columns,
+}: DeletedListProps) {
+  const qc = useQueryClient();
+  const { data = [] } = useQuery({
+    queryKey: [queryKey],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from(table)
+        .select("*")
+        .order("deleted_at", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: [queryKey] });
+    invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: k }));
+  };
+
+  const restore = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc(restoreRpc, { _id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Restored"); refresh(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const hard = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.rpc(hardRpc, { _id: id });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Permanently deleted"); refresh(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <Card className="border-border/60 shadow-soft">
+      <CardHeader>
+        <h2 className="font-display text-xl">{title}</h2>
+        <p className="text-sm text-muted-foreground">{data.length} item{data.length === 1 ? "" : "s"}</p>
+      </CardHeader>
+      <CardContent className="p-0">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+            <tr>
+              {columns.map((c) => <th key={c.header} className="p-3 text-left">{c.header}</th>)}
+              <th className="p-3 text-left">Deleted</th>
+              <th className="p-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((r: any) => (
+              <tr key={r.id} className="border-t border-border">
+                {columns.map((c) => <td key={c.header} className="p-3">{c.cell(r)}</td>)}
+                <td className="p-3 text-muted-foreground">{new Date(r.deleted_at).toLocaleString()}</td>
+                <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                  <Button size="sm" variant="outline" onClick={() => restore.mutate(r.id)} disabled={restore.isPending}>
+                    <Undo2 className="mr-1 h-4 w-4" /> Restore
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if (confirm(`Permanently delete ${labelFor(r)}? This cannot be undone.`)) {
+                        hard.mutate(r.id);
+                      }
+                    }}
+                    disabled={hard.isPending}
+                  >
+                    <Trash2 className="mr-1 h-4 w-4 text-destructive" /> Delete permanently
+                  </Button>
+                </td>
+              </tr>
+            ))}
+            {data.length === 0 && (
+              <tr><td colSpan={columns.length + 2} className="p-8 text-center text-sm text-muted-foreground">{emptyLabel}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
   );
 }
