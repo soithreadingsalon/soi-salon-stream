@@ -471,7 +471,7 @@ function CheckoutPanel({
   loyalty, maxRedeemable, pointsRedeem, setPointsRedeem,
   canRedeemFree, onAddFreeEyebrow,
   totalDiscount, tax, tip, baseForTip, grandTotal,
-  tipPct, setTipPct, tipCustom, setTipCustom,
+  tipPct, setTipPct, tipPresets, tipCustom, setTipCustom,
   method, setMethod, tendered, setTendered,
   pending, onBack, onComplete,
 }: any) {
