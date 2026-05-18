@@ -41,8 +41,6 @@ function LoginPage() {
     },
   });
 
-  if (!loading && user) return <Navigate to="/dashboard" />;
-
   useEffect(() => {
     if (pin.length !== 4 || !picked || busy) return;
     (async () => {
@@ -61,6 +59,8 @@ function LoginPage() {
       } finally { setBusy(false); }
     })();
   }, [pin, picked, busy, callSignIn, navigate]);
+
+  if (!loading && user) return <Navigate to="/dashboard" />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-cream px-4 py-10">
