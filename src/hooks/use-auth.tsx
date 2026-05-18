@@ -9,6 +9,7 @@ interface AuthCtx {
   session: Session | null;
   roles: AppRole[];
   loading: boolean;
+  rolesLoading: boolean;
   hasRole: (...r: AppRole[]) => boolean;
   signOut: () => Promise<void>;
 }
