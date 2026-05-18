@@ -9,6 +9,7 @@ interface AuthCtx {
   session: Session | null;
   roles: AppRole[];
   loading: boolean;
+  rolesLoading: boolean;
   hasRole: (...r: AppRole[]) => boolean;
   signOut: () => Promise<void>;
 }
@@ -20,12 +21,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rolesLoading, setRolesLoading] = useState(true);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
+        setRolesLoading(true);
         // defer to avoid deadlocks
         setTimeout(async () => {
           const { data } = await supabase
@@ -33,15 +36,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .select("role")
             .eq("user_id", sess.user.id);
           setRoles((data ?? []).map((r) => r.role as AppRole));
+          setRolesLoading(false);
         }, 0);
       } else {
         setRoles([]);
+        setRolesLoading(false);
       }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (!session?.user) setRolesLoading(false);
       setLoading(false);
     });
 
@@ -55,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <Ctx.Provider value={{ user, session, roles, loading, hasRole, signOut }}>
+    <Ctx.Provider value={{ user, session, roles, loading, rolesLoading, hasRole, signOut }}>
       {children}
     </Ctx.Provider>
   );
