@@ -37,8 +37,9 @@ type CartItem = {
 };
 type PayMethod = "cash" | "card" | "zelle";
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+const makeFmt = (currency: string) => (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format(n);
+let fmt = makeFmt("USD");
 
 const ICONS: Record<string, any> = {
   sparkles: Sparkles, flame: Flame, flower: Flower, scissors: Scissors,
