@@ -164,6 +164,69 @@ export type Database = {
         }
         Relationships: []
       }
+      customers_deleted: {
+        Row: {
+          allergies: string | null
+          birthday: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string
+          deleted_by: string | null
+          email: string | null
+          full_name: string
+          id: string
+          last_visit_at: string | null
+          marketing_opt_in: boolean
+          no_show_count: number
+          notes: string | null
+          phone: string | null
+          preferred_staff_id: string | null
+          total_spend: number
+          updated_at: string
+          visit_count: number
+        }
+        Insert: {
+          allergies?: string | null
+          birthday?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string
+          deleted_by?: string | null
+          email?: string | null
+          full_name: string
+          id: string
+          last_visit_at?: string | null
+          marketing_opt_in?: boolean
+          no_show_count?: number
+          notes?: string | null
+          phone?: string | null
+          preferred_staff_id?: string | null
+          total_spend?: number
+          updated_at?: string
+          visit_count?: number
+        }
+        Update: {
+          allergies?: string | null
+          birthday?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string
+          deleted_by?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          last_visit_at?: string | null
+          marketing_opt_in?: boolean
+          no_show_count?: number
+          notes?: string | null
+          phone?: string | null
+          preferred_staff_id?: string | null
+          total_spend?: number
+          updated_at?: string
+          visit_count?: number
+        }
+        Relationships: []
+      }
       loyalty_accounts: {
         Row: {
           created_at: string
@@ -518,6 +581,63 @@ export type Database = {
           },
         ]
       }
+      services_deleted: {
+        Row: {
+          active: boolean
+          category_id: string
+          commission_eligible: boolean
+          created_at: string
+          deleted_at: string
+          deleted_by: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          image_url: string | null
+          name: string
+          price: number
+          sort_order: number
+          starts_at: boolean
+          taxable: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category_id: string
+          commission_eligible?: boolean
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id: string
+          image_url?: string | null
+          name: string
+          price?: number
+          sort_order?: number
+          starts_at?: boolean
+          taxable?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category_id?: string
+          commission_eligible?: boolean
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          price?: number
+          sort_order?: number
+          starts_at?: boolean
+          taxable?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -581,6 +701,8 @@ export type Database = {
       }
     }
     Functions: {
+      hard_delete_customer: { Args: { _id: string }; Returns: undefined }
+      hard_delete_service: { Args: { _id: string }; Returns: undefined }
       has_any_role: {
         Args: {
           _roles: Database["public"]["Enums"]["app_role"][]
@@ -595,6 +717,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      restore_customer: { Args: { _id: string }; Returns: undefined }
+      restore_service: { Args: { _id: string }; Returns: undefined }
+      soft_delete_customer: { Args: { _id: string }; Returns: undefined }
+      soft_delete_service: { Args: { _id: string }; Returns: undefined }
       verify_worker_pin: {
         Args: { _pin: string; _user_id: string }
         Returns: boolean
