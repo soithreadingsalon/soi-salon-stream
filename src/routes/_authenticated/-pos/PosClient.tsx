@@ -259,10 +259,10 @@ export function PosClient() {
       if (isTypingTarget(e.target)) return;
 
       // Pay dialog active: 1/2/3 → method
-      if (payOpen && !completeSale.isPending) {
-        if (e.key === "1") { e.preventDefault(); chargeWith("cash"); return; }
-        if (e.key === "2") { e.preventDefault(); chargeWith("card"); return; }
-        if (e.key === "3") { e.preventDefault(); chargeWith("zelle"); return; }
+      if (payOpen && !chargeRef.current.pending) {
+        if (e.key === "1") { e.preventDefault(); chargeRef.current.charge("cash"); return; }
+        if (e.key === "2") { e.preventDefault(); chargeRef.current.charge("card"); return; }
+        if (e.key === "3") { e.preventDefault(); chargeRef.current.charge("zelle"); return; }
       }
 
       // Dialog open? let Radix handle Esc/etc.
