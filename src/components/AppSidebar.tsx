@@ -33,6 +33,7 @@ const items = [
   { title: "Customers", url: "/customers", icon: Users, roles: ["super_admin", "admin", "manager"] },
   { title: "Services", url: "/services", icon: Sparkles, roles: ["super_admin", "admin"] },
   { title: "Memberships", url: "/memberships", icon: IdCard, roles: ["super_admin", "admin", "manager"] },
+  { title: "Reports", url: "/reports", icon: BarChart3, roles: ["super_admin", "admin", "manager"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["super_admin", "admin"] },
 ] as const;
 
