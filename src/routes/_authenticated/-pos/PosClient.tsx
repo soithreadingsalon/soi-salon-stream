@@ -227,6 +227,71 @@ export function PosClient() {
 
   useEffect(() => { setPointsRedeem(0); }, [customer?.id]);
 
+  // Announce cart changes for screen readers
+  const prevCountRef = useRef(0);
+  useEffect(() => {
+    const count = cart.reduce((s, i) => s + i.quantity, 0);
+    if (count !== prevCountRef.current) {
+      setLiveMsg(`${count} item${count === 1 ? "" : "s"} in cart, total ${fmt(grandTotal)}`);
+      prevCountRef.current = count;
+    }
+  }, [cart, grandTotal]);
+
+  // Global POS keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Help: Shift + ?
+      if (e.key === "?" && (e.shiftKey || true)) {
+        if (!isTypingTarget(e.target)) {
+          e.preventDefault();
+          setShortcutsOpen((v) => !v);
+          return;
+        }
+      }
+      // Focus search: '/' or Ctrl/Cmd+K
+      if ((e.key === "/" && !isTypingTarget(e.target)) ||
+          ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k")) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+      if (isTypingTarget(e.target)) return;
+
+      // Pay dialog active: 1/2/3 → method
+      if (payOpen && !completeSale.isPending) {
+        if (e.key === "1") { e.preventDefault(); chargeWith("cash"); return; }
+        if (e.key === "2") { e.preventDefault(); chargeWith("card"); return; }
+        if (e.key === "3") { e.preventDefault(); chargeWith("zelle"); return; }
+      }
+
+      // Dialog open? let Radix handle Esc/etc.
+      if (custDialog || newCustOpen || varPriceSvc || giftOpen || memOpen || payOpen || shortcutsOpen) return;
+
+      // Open Pay
+      if (e.key === "Enter" && cart.length > 0) {
+        e.preventDefault();
+        setPayOpen(true);
+        return;
+      }
+      const k = e.key.toLowerCase();
+      if (k === "g") { e.preventDefault(); setGiftOpen(true); return; }
+      if (k === "m") { e.preventDefault(); setMemOpen(true); return; }
+      if (k === "c") { e.preventDefault(); setCustDialog(true); return; }
+
+      // Category 1..9
+      if (/^[1-9]$/.test(e.key)) {
+        const idx = parseInt(e.key, 10) - 1;
+        const c = cats[idx];
+        if (c) { e.preventDefault(); setActiveCat(c.id); setSearch(""); }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, cats, payOpen, custDialog, newCustOpen, varPriceSvc, giftOpen, memOpen, shortcutsOpen, completeSale.isPending]);
+
+
   const resetCheckoutState = () => {
     setDiscount(0); setPointsRedeem(0);
     setTipPct(null); setTipCustom(0);
