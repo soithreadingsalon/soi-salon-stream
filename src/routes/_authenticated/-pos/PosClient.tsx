@@ -227,6 +227,13 @@ export function PosClient() {
 
   useEffect(() => { setPointsRedeem(0); }, [customer?.id]);
 
+  // Ref to access chargeWith + pending state inside keydown listener
+  // (chargeWith is declared further down)
+  const chargeRef = useRef<{ charge: (m: PayMethod) => void; pending: boolean }>({
+    charge: () => {},
+    pending: false,
+  });
+
   // Announce cart changes for screen readers
   const prevCountRef = useRef(0);
   useEffect(() => {
