@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, Minus, Trash2, Search, UserPlus, X, Star, Gift,
   Sparkles, Flame, Flower, Scissors, Palette, User, CreditCard,
-  Banknote, Wallet, ArrowLeft, IdCard, ShoppingBag,
+  Banknote, Wallet, IdCard, ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
@@ -62,14 +62,11 @@ export function PosClient() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
 
-  // Checkout panel state
-  const [mode, setMode] = useState<"cart" | "checkout">("cart");
+  // Inline cart adjustments (no second screen)
   const [discount, setDiscount] = useState(0);
   const [pointsRedeem, setPointsRedeem] = useState(0);
   const [tipPct, setTipPct] = useState<number | null>(null);
   const [tipCustom, setTipCustom] = useState(0);
-  const [method, setMethod] = useState<PayMethod | null>(null);
-  const [tendered, setTendered] = useState(0);
 
   const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
   const [custDialog, setCustDialog] = useState(false);
@@ -78,6 +75,8 @@ export function PosClient() {
   const [giftOpen, setGiftOpen] = useState(false);
   const [memOpen, setMemOpen] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payingMethod, setPayingMethod] = useState<PayMethod | null>(null);
 
   const { data: cats = [] } = useQuery<Category[]>({
     queryKey: ["service_categories"],
@@ -214,11 +213,9 @@ export function PosClient() {
 
   useEffect(() => { setPointsRedeem(0); }, [customer?.id]);
 
-  // Reset checkout panel state whenever we leave it
   const resetCheckoutState = () => {
     setDiscount(0); setPointsRedeem(0);
     setTipPct(null); setTipCustom(0);
-    setMethod(null); setTendered(0);
   };
 
   const maxRedeemable = loyalty
@@ -226,7 +223,7 @@ export function PosClient() {
     : 0;
 
   const completeSale = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (method: PayMethod) => {
       if (!method) throw new Error("Pick a payment method");
       if (cart.length === 0) throw new Error("Cart is empty");
 
@@ -251,7 +248,6 @@ export function PosClient() {
       const { error: iErr } = await supabase.from("order_items").insert(items);
       if (iErr) throw iErr;
 
-      // Persist gift cards / memberships that were sold in this order
       const giftCardRows = cart.filter((i) => i.item_type === "gift_card").map((i) => ({
         code: `GC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
         amount: i.unit_price,
@@ -281,8 +277,6 @@ export function PosClient() {
         if (mErr) throw mErr;
       }
 
-
-      // Fire the cash drawer ONLY for confirmed cash payments
       let drawerStatus: "not_applicable" | "opened" | "failed" | "disabled" = "not_applicable";
       if (method === "cash") {
         drawerStatus = await openCashDrawer(settings as any);
@@ -347,14 +341,25 @@ export function PosClient() {
       toast.success("Sale complete");
       setReceiptOrderId(oid);
       setCart([]); setCustomer(null);
-      setMode("cart");
+      setPayOpen(false);
+      setPayingMethod(null);
       setMobileCartOpen(false);
       resetCheckoutState();
       qc.invalidateQueries({ queryKey: ["dashboard-today"] });
       qc.invalidateQueries({ queryKey: ["loyalty"] });
     },
-    onError: (e: any) => toast.error(e.message ?? "Failed"),
+    onError: (e: any) => {
+      setPayingMethod(null);
+      toast.error(e.message ?? "Failed");
+    },
   });
+
+  const chargeWith = (m: PayMethod) => {
+    if (completeSale.isPending) return;
+    setPayingMethod(m);
+    completeSale.mutate(m);
+  };
+
 
   /* ---------------- LAYOUT ---------------- */
   return (
@@ -436,38 +441,24 @@ export function PosClient() {
           </div>
         </div>
 
-        {/* RIGHT PANEL — cart OR checkout (desktop/tablet large) */}
+        {/* RIGHT PANEL — single-step cart (desktop/tablet large) */}
         <aside className="hidden w-[420px] flex-none flex-col border-l border-border bg-card md:flex">
-
-          {mode === "cart" ? (
-            <CartPanel
-              cart={cart} customer={customer}
-              subtotal={subtotal} totalDiscount={totalDiscount} tax={tax}
-              grandTotal={+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2)}
-              updateQty={updateQty} removeItem={removeItem}
-              onClear={() => setCart([])}
-              onCharge={() => setMode("checkout")}
-            />
-          ) : (
-            <CheckoutPanel
-              subtotal={subtotal}
-              discount={discount} setDiscount={setDiscount}
-              loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
-              pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
-              canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
-              onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
-              totalDiscount={totalDiscount} tax={tax} tip={tip}
-              baseForTip={baseForTip} grandTotal={grandTotal}
-              tipPct={tipPct} setTipPct={setTipPct}
-              tipPresets={tipPresets}
-              tipCustom={tipCustom} setTipCustom={setTipCustom}
-              method={method} setMethod={setMethod}
-              tendered={tendered} setTendered={setTendered}
-              pending={completeSale.isPending}
-              onBack={() => { setMode("cart"); resetCheckoutState(); }}
-              onComplete={() => completeSale.mutate()}
-            />
-          )}
+          <CartPanel
+            cart={cart} customer={customer}
+            subtotal={subtotal} totalDiscount={totalDiscount} tax={tax} tip={tip}
+            baseForTip={baseForTip} grandTotal={grandTotal}
+            discount={discount} setDiscount={setDiscount}
+            tipPct={tipPct} setTipPct={setTipPct}
+            tipPresets={tipPresets}
+            tipCustom={tipCustom} setTipCustom={setTipCustom}
+            loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
+            pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
+            canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
+            onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
+            updateQty={updateQty} removeItem={removeItem}
+            onClear={() => { setCart([]); resetCheckoutState(); }}
+            onCharge={() => setPayOpen(true)}
+          />
         </aside>
       </div>
 
@@ -483,7 +474,7 @@ export function PosClient() {
             {cart.reduce((s, i) => s + i.quantity, 0)} item
             {cart.reduce((s, i) => s + i.quantity, 0) === 1 ? "" : "s"}
           </span>
-          <span>{fmt(+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2))}</span>
+          <span>{fmt(grandTotal)}</span>
         </Button>
       </div>
 
@@ -491,38 +482,35 @@ export function PosClient() {
         <SheetContent side="right" className="flex w-full max-w-md flex-col p-0 sm:max-w-md">
           <SheetHeader className="sr-only"><SheetTitle>Cart</SheetTitle></SheetHeader>
           <div className="flex h-full flex-col">
-            {mode === "cart" ? (
-              <CartPanel
-                cart={cart} customer={customer}
-                subtotal={subtotal} totalDiscount={totalDiscount} tax={tax}
-                grandTotal={+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2)}
-                updateQty={updateQty} removeItem={removeItem}
-                onClear={() => setCart([])}
-                onCharge={() => setMode("checkout")}
-              />
-            ) : (
-              <CheckoutPanel
-                subtotal={subtotal}
-                discount={discount} setDiscount={setDiscount}
-                loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
-                pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
-                canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
-                onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
-                totalDiscount={totalDiscount} tax={tax} tip={tip}
-                baseForTip={baseForTip} grandTotal={grandTotal}
-                tipPct={tipPct} setTipPct={setTipPct}
-                tipPresets={tipPresets}
-                tipCustom={tipCustom} setTipCustom={setTipCustom}
-                method={method} setMethod={setMethod}
-                tendered={tendered} setTendered={setTendered}
-                pending={completeSale.isPending}
-                onBack={() => { setMode("cart"); resetCheckoutState(); }}
-                onComplete={() => completeSale.mutate()}
-              />
-            )}
+            <CartPanel
+              cart={cart} customer={customer}
+              subtotal={subtotal} totalDiscount={totalDiscount} tax={tax} tip={tip}
+              baseForTip={baseForTip} grandTotal={grandTotal}
+              discount={discount} setDiscount={setDiscount}
+              tipPct={tipPct} setTipPct={setTipPct}
+              tipPresets={tipPresets}
+              tipCustom={tipCustom} setTipCustom={setTipCustom}
+              loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
+              pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
+              canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
+              onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
+              updateQty={updateQty} removeItem={removeItem}
+              onClear={() => { setCart([]); resetCheckoutState(); }}
+              onCharge={() => setPayOpen(true)}
+            />
           </div>
         </SheetContent>
       </Sheet>
+
+      <PaymentMethodDialog
+        open={payOpen}
+        onOpenChange={(o) => { if (!completeSale.isPending) setPayOpen(o); }}
+        grandTotal={grandTotal}
+        onChoose={chargeWith}
+        pending={completeSale.isPending}
+        payingMethod={payingMethod}
+      />
+
 
       <CustomerSearchDialog
         open={custDialog} onOpenChange={setCustDialog}
@@ -685,9 +673,13 @@ function MembershipDialog({
 }
 
 
-/* ============== CART PANEL ============== */
+/* ============== CART PANEL (one-step checkout) ============== */
 function CartPanel({
-  cart, customer, subtotal, totalDiscount, tax, grandTotal,
+  cart, customer, subtotal, totalDiscount, tax, tip, baseForTip, grandTotal,
+  discount, setDiscount,
+  tipPct, setTipPct, tipPresets, tipCustom, setTipCustom,
+  loyalty: _loyalty, maxRedeemable, pointsRedeem, setPointsRedeem,
+  canRedeemFree, onAddFreeEyebrow,
   updateQty, removeItem, onClear, onCharge,
 }: any) {
   const cartCount = cart.reduce((s: number, i: CartItem) => s + i.quantity, 0);
@@ -736,6 +728,70 @@ function CartPanel({
             ))}
           </ul>
         )}
+
+        {cart.length > 0 && (
+          <div className="mt-3 space-y-3">
+            {/* Loyalty quick actions */}
+            {(canRedeemFree || maxRedeemable > 0) && (
+              <div className="space-y-1.5 rounded-lg border-2 border-gold/50 bg-gold/5 p-2">
+                {canRedeemFree && (
+                  <button onClick={onAddFreeEyebrow}
+                    className="flex w-full items-center justify-between rounded-md bg-card px-3 py-2.5 text-sm font-medium hover:bg-card/70">
+                    <span className="flex items-center gap-2"><Gift className="h-4 w-4 text-gold" /> Apply free eyebrow</span>
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
+                {maxRedeemable > 0 && pointsRedeem === 0 && (
+                  <button onClick={() => setPointsRedeem(maxRedeemable)}
+                    className="flex w-full items-center justify-between rounded-md bg-card px-3 py-2.5 text-sm font-medium hover:bg-card/70">
+                    <span className="flex items-center gap-2"><Star className="h-4 w-4 text-gold" /> Redeem {maxRedeemable} pts → -{fmt(maxRedeemable / 100 * 5)}</span>
+                    <Plus className="h-4 w-4" />
+                  </button>
+                )}
+                {pointsRedeem > 0 && (
+                  <button onClick={() => setPointsRedeem(0)}
+                    className="flex w-full items-center justify-between rounded-md bg-gold/20 px-3 py-2.5 text-sm font-semibold">
+                    <span>{pointsRedeem} pts redeemed</span><X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Discount */}
+            <div>
+              <Label className="text-sm font-semibold">Discount ($)</Label>
+              <Input type="number" min="0" step="0.01" value={discount || ""}
+                onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+                className="mt-1.5 h-11 text-base" placeholder="0.00" />
+            </div>
+
+            {/* Tip */}
+            <div>
+              <Label className="text-sm font-semibold">Tip</Label>
+              <div className={`mt-1.5 grid gap-1.5 ${(tipPresets as number[]).length >= 4 ? "grid-cols-4" : (tipPresets as number[]).length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+                {(tipPresets as number[]).map((p) => {
+                  const active = tipPct === p && tipCustom === 0;
+                  return (
+                    <button key={p}
+                      onClick={() => { setTipCustom(0); setTipPct(active ? null : p); }}
+                      className={`rounded-lg border-2 p-2 text-center transition active:scale-95 ${
+                        active ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
+                      }`}>
+                      <div className="font-display text-base">{p}%</div>
+                      <div className="text-[10px] text-muted-foreground">{fmt(+(baseForTip * p / 100).toFixed(2))}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Input type="number" min="0" step="0.01" value={tipCustom || ""}
+                  onChange={(e) => { const v = Number(e.target.value) || 0; setTipCustom(v); if (v > 0) setTipPct(null); }}
+                  placeholder="Custom $" className="h-10 text-base" />
+                <Button variant="outline" size="sm" onClick={() => { setTipCustom(0); setTipPct(null); }}>No tip</Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-none border-t border-border bg-muted/30 px-4 py-3">
@@ -743,6 +799,7 @@ function CartPanel({
           <Row label="Subtotal" value={fmt(subtotal)} />
           {totalDiscount > 0 && <Row label="Discount" value={`-${fmt(totalDiscount)}`} />}
           <Row label="Tax" value={fmt(tax)} />
+          {tip > 0 && <Row label="Tip" value={fmt(tip)} />}
           <Separator className="my-2" />
           <div className="flex items-baseline justify-between">
             <span className="font-display text-lg">Total</span>
@@ -759,153 +816,57 @@ function CartPanel({
   );
 }
 
-/* ============== CHECKOUT PANEL ============== */
-function CheckoutPanel({
-  subtotal, discount, setDiscount,
-  loyalty, maxRedeemable, pointsRedeem, setPointsRedeem,
-  canRedeemFree, onAddFreeEyebrow,
-  totalDiscount, tax, tip, baseForTip, grandTotal,
-  tipPct, setTipPct, tipPresets, tipCustom, setTipCustom,
-  method, setMethod, tendered, setTendered,
-  pending, onBack, onComplete,
-}: any) {
-  const change = method === "cash" && tendered >= grandTotal ? +(tendered - grandTotal).toFixed(2) : 0;
-  const cashOk = method !== "cash" || tendered >= grandTotal;
-  const quick = method === "cash" ? [
-    Math.ceil(grandTotal),
-    Math.ceil(grandTotal / 5) * 5,
-    Math.ceil(grandTotal / 10) * 10,
-    Math.ceil(grandTotal / 20) * 20,
-  ].filter((v, i, a) => v >= grandTotal && a.indexOf(v) === i).slice(0, 4) : [];
-
+/* ============== PAYMENT METHOD DIALOG ============== */
+function PaymentMethodDialog({
+  open, onOpenChange, grandTotal, onChoose, pending, payingMethod,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  grandTotal: number;
+  onChoose: (m: PayMethod) => void;
+  pending: boolean;
+  payingMethod: PayMethod | null;
+}) {
+  const choices: { m: PayMethod; label: string; icon: any }[] = [
+    { m: "cash", label: "Cash", icon: Banknote },
+    { m: "card", label: "Card", icon: CreditCard },
+    { m: "zelle", label: "Zelle", icon: Wallet },
+  ];
   return (
-    <>
-      <div className="flex-none border-b border-border bg-primary px-4 py-3 text-primary-foreground">
-        <div className="flex items-center gap-2">
-          <button onClick={onBack} className="rounded-full p-1.5 hover:bg-primary-foreground/10">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h2 className="font-display text-xl">Checkout</h2>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto p-4 space-y-4">
-        {/* Loyalty quick actions */}
-        {(canRedeemFree || maxRedeemable > 0) && (
-          <div className="space-y-1.5 rounded-lg border-2 border-gold/50 bg-gold/5 p-2">
-            {canRedeemFree && (
-              <button onClick={onAddFreeEyebrow}
-                className="flex w-full items-center justify-between rounded-md bg-card px-3 py-2.5 text-sm font-medium hover:bg-card/70">
-                <span className="flex items-center gap-2"><Gift className="h-4 w-4 text-gold" /> Apply free eyebrow</span>
-                <Plus className="h-4 w-4" />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-2xl">
+            Charge {fmt(grandTotal)}
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Pick a payment method — the sale completes immediately.
+        </p>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {choices.map(({ m, label, icon: Icon }) => {
+            const isPaying = payingMethod === m;
+            return (
+              <button
+                key={m}
+                disabled={pending}
+                onClick={() => onChoose(m)}
+                className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 p-4 transition active:scale-95 disabled:opacity-50 ${
+                  isPaying ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
+                }`}
+              >
+                <Icon className={`h-7 w-7 ${isPaying ? "text-gold animate-pulse" : "text-muted-foreground"}`} />
+                <span className="font-display text-base">{isPaying ? "Processing…" : label}</span>
               </button>
-            )}
-            {maxRedeemable > 0 && pointsRedeem === 0 && (
-              <button onClick={() => setPointsRedeem(maxRedeemable)}
-                className="flex w-full items-center justify-between rounded-md bg-card px-3 py-2.5 text-sm font-medium hover:bg-card/70">
-                <span className="flex items-center gap-2"><Star className="h-4 w-4 text-gold" /> Redeem {maxRedeemable} pts → -{fmt(maxRedeemable / 100 * 5)}</span>
-                <Plus className="h-4 w-4" />
-              </button>
-            )}
-            {pointsRedeem > 0 && (
-              <button onClick={() => setPointsRedeem(0)}
-                className="flex w-full items-center justify-between rounded-md bg-gold/20 px-3 py-2.5 text-sm font-semibold">
-                <span>{pointsRedeem} pts redeemed</span><X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Discount */}
-        <div>
-          <Label className="text-sm font-semibold">Discount ($)</Label>
-          <Input type="number" min="0" step="0.01" value={discount || ""}
-            onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-            className="mt-1.5 h-12 text-lg" placeholder="0.00" />
+            );
+          })}
         </div>
-
-        {/* Tip */}
-        <div>
-          <Label className="text-sm font-semibold">Tip</Label>
-          <div className={`mt-1.5 grid gap-1.5 ${(tipPresets as number[]).length >= 4 ? "grid-cols-4" : (tipPresets as number[]).length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-            {(tipPresets as number[]).map((p) => {
-              const active = tipPct === p && tipCustom === 0;
-              return (
-                <button key={p}
-                  onClick={() => { setTipCustom(0); setTipPct(active ? null : p); }}
-                  className={`rounded-lg border-2 p-2.5 text-center transition active:scale-95 ${
-                    active ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
-                  }`}>
-                  <div className="font-display text-lg">{p}%</div>
-                  <div className="text-[10px] text-muted-foreground">{fmt(+(baseForTip * p / 100).toFixed(2))}</div>
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <Input type="number" min="0" step="0.01" value={tipCustom || ""}
-              onChange={(e) => { const v = Number(e.target.value) || 0; setTipCustom(v); if (v > 0) setTipPct(null); }}
-              placeholder="Custom $" className="h-10 text-base" />
-            <Button variant="outline" size="sm" onClick={() => { setTipCustom(0); setTipPct(null); }}>No tip</Button>
-          </div>
-        </div>
-
-        {/* Payment method */}
-        <div>
-          <Label className="text-sm font-semibold">Payment method</Label>
-          <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-            <PayBtn icon={Banknote} label="Cash" active={method === "cash"} onClick={() => setMethod("cash")} />
-            <PayBtn icon={CreditCard} label="Card" active={method === "card"} onClick={() => setMethod("card")} />
-            <PayBtn icon={Wallet} label="Zelle" active={method === "zelle"} onClick={() => setMethod("zelle")} />
-          </div>
-        </div>
-
-        {/* Cash tendered */}
-        {method === "cash" && (
-          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-            <Label className="text-sm font-semibold">Cash received</Label>
-            <div className="grid grid-cols-4 gap-1.5">
-              {quick.map((amt) => (
-                <button key={amt} onClick={() => setTendered(amt)}
-                  className={`rounded-lg border-2 py-2.5 font-semibold ${
-                    tendered === amt ? "border-gold bg-gold/10" : "border-border bg-card hover:border-gold/60"
-                  }`}>${amt}</button>
-              ))}
-            </div>
-            <Input type="number" min="0" step="0.01" value={tendered || ""}
-              onChange={(e) => setTendered(Number(e.target.value) || 0)}
-              placeholder="Custom amount" className="h-11 text-lg font-semibold" />
-            {tendered >= grandTotal && (
-              <div className="rounded-md bg-gold/10 p-2 text-center">
-                <p className="text-xs text-muted-foreground">Change due</p>
-                <p className="font-display text-2xl font-semibold text-gold">{fmt(change)}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex-none border-t border-border bg-muted/30 px-4 py-3">
-        <div className="space-y-1 text-base">
-          <Row label="Subtotal" value={fmt(subtotal)} />
-          {totalDiscount > 0 && <Row label="Discount" value={`-${fmt(totalDiscount)}`} />}
-          <Row label="Tax" value={fmt(tax)} />
-          {tip > 0 && <Row label="Tip" value={fmt(tip)} />}
-          <Separator className="my-2" />
-          <div className="flex items-baseline justify-between">
-            <span className="font-display text-lg">Total</span>
-            <span className="font-display text-3xl font-semibold">{fmt(grandTotal)}</span>
-          </div>
-        </div>
-        <Button size="lg" disabled={!method || !cashOk || pending}
-          onClick={onComplete}
-          className="mt-3 h-16 w-full bg-primary text-xl font-semibold text-primary-foreground hover:bg-primary/90">
-          {pending ? "Processing…" : `Complete sale · ${fmt(grandTotal)}`}
-        </Button>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
+
+
 
 function PayBtn({ icon: Icon, label, active, onClick }: any) {
   return (

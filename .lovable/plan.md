@@ -1,122 +1,49 @@
-# SOI Threading Salon POS — Full Update Plan
+## Goal
 
-This is a large, multi-area change. I'll ship it in clear database + UI phases. Everything below uses Lovable Cloud (your existing backend) and the existing TanStack Start app — no new stacks.
+Make the right-hand POS panel a true one-step checkout. Remove the dedicated "Checkout" screen. Discount and tip live directly in the cart panel. The big **Charge** button opens a small payment-method popup (Cash / Card / Zelle) — clicking a method completes the sale immediately.
 
-## 1. Database changes (one migration)
-
-New / updated tables:
-- `services` — wipe and reseed from the attached Final.pdf menu. Add columns: `is_variable_price boolean`, `price_label text` (e.g. "$180 & up"), `source text default 'official_menu'`. Categories normalized to: Threading, Waxing, Facials, Hair Care, Henna, Men.
-- `gift_cards` — code, amount, balance, recipient_name, buyer_name, status, timestamps.
-- `memberships` — customer_id, customer_name, membership_type, price, start_date, expiration_date, status, timestamps.
-- `orders` / `order_items` — extend `order_items` with `item_type` ('service'|'gift_card'|'membership'), keep service_id nullable. Add `payment_method` ('cash'|'card'|'zelle'), `payment_reference`, `cash_drawer_status` to `payments` or `orders`.
-- `worker_shifts` — worker_id, date, clock_in_at, clock_out_at, total_hours, status, is_adjusted, admin_notes.
-- `business_settings` — add `cash_drawer_enabled`, `cash_drawer_connection_type`, `cash_drawer_printer_ip`, `cash_drawer_printer_port`. Update business name/address/phone to the new Wayne, NJ values.
-
-DB function: `reset_services_to_official_menu()` (SECURITY DEFINER, admin-only) — wipes `services` and reseeds the exact menu.
-
-RLS: admin-only writes for services/memberships/gift_cards/shifts settings; cashiers can insert orders, gift_cards, memberships, and their own shifts.
-
-## 2. POS one-screen checkout (`src/routes/_authenticated/-pos/PosClient.tsx`)
-
-Single screen, no second discount step:
+## Current flow (what to remove)
 
 ```text
-┌──────────────────────────────┬─────────────────────────┐
-│ [Threading][Waxing][Facials] │ Customer name [_____]   │
-│ [Hair Care][Henna][Men]      │ ─ Cart ───────────────  │
-│ [Gift Card][Membership]      │ • Eyebrow      $10  [x] │
-│ Search [____________]        │ • Body Wax    $180  [✎] │
-│ ┌──┬──┬──┬──┐                │ Subtotal       $190     │
-│ │  │  │  │  │  service tiles │ Discount [None ▾][__]   │
-│ └──┴──┴──┴──┘                │ Total          $190     │
-│                              │ [Clear]    [ Charge ▶ ] │
-└──────────────────────────────┴─────────────────────────┘
+Cart panel  ──[Charge]──▶  Checkout panel  ──[Complete sale]──▶  Done
+            (step 1)        (discount, tip,
+                             method, cash tendered)
 ```
 
-- Variable-price services (`& up`) open a tiny inline price editor on add and a pencil in the cart.
-- Gift Card / Membership tabs swap the left panel for their own forms; submitting adds them to the cart as `item_type` rows.
-- Discount: None / Fixed $ / Percent — live recalculates total. Validates `discount ≤ subtotal`, no negatives.
-- Charge button opens a small **payment method** sheet (Cash / Card / Zelle) — that's the only extra step.
+## New flow
 
-## 3. Payment + cash drawer
-
-On confirm:
-1. Insert order, items, payment (with method + optional reference).
-2. If method = cash → call `openCashDrawer()` abstraction.
-3. Show success → clear cart.
-
-`src/lib/cashDrawer.ts`:
-- `openCashDrawer()` reads `business_settings.cash_drawer_*`.
-- Modes: `disabled`, `manual`, `receipt_printer` (window.print trigger), `escpos_network` (POST raw bytes `[27,112,0,25,250]` to `http://{ip}:{port}` — wrapped in try/catch with clear "needs local POS bridge" comment), `escpos_usb` (WebUSB stub with TODO).
-- Records `cash_drawer_status` = `opened` | `failed` | `not_applicable` | `disabled` on the payment row.
-- Admin Settings → Cash Drawer tab with all fields + **Test drawer** button.
-
-## 4. Customer entry from POS
-
-- Inline `Customer Name` field on the right panel, optional.
-- "Add more details" reveals phone + email.
-- On charge: lookup by name+phone/email; if no match → insert; attach `customer_id` to order. No duplicates.
-
-## 5. Worker clock in / out
-
-- On first POS load each day, if no open shift → show "Clock In" modal blocking the screen.
-- Header shows clock status + Clock Out button.
-- Trying to Charge with no open shift → toast "Clock in to continue" and opens the modal.
-- Admin Settings → new **Shifts** tab: list shifts, edit clock_out + notes (marks `is_adjusted`).
-
-## 6. Admin pages updates
-
-- **Services** (`services.tsx`): show category, base price, "& up" label, variable flag toggle, active toggle, sort. Add **"Reset to Official Menu"** button (calls the RPC, confirms via existing two-step delete dialog pattern).
-- **Customers** (`customers.tsx`): already has CRUD — verify columns include total visits/spend/last visit.
-- **Settings** (`settings.tsx`): existing tabs + new **Cash Drawer** and **Shifts** tabs. Prepopulate business name = "SOI Threading Salon", address = "180 Hamburg Turnpk, Wayne, NJ 07470", phone = "551-301-3894".
-- **Reports** — new route `/reports`: filters (hourly / half-day / day / custom / week / month / year / worker / payment method / item type / customer / discount-only); KPIs (gross, discounts, net, cash/card/zelle totals, service/gift-card/membership totals, sales by worker, sales by category, # customers, AOV); transactions table; CSV export + Print.
-- **Gift Cards** + **Memberships** — small admin list pages to view sold items.
-
-## 7. Receipt + address everywhere
-
-Update `ReceiptDialog.tsx`, dashboard, settings prefill, and any hard-coded copy to:
-
-```
-SOI Threading Salon
-180 Hamburg Turnpk, Wayne, NJ 07470
-551-301-3894
+```text
+Cart panel (one screen)                ──[Charge $X]──▶  Payment popup  ──▶  Done
+  • items + qty                                          Cash / Card /
+  • Discount $  (inline)                                 Zelle
+  • Tip (% chips + custom)                               (click = complete)
+  • Loyalty quick actions (free eyebrow / redeem pts)
+  • Subtotal / Discount / Tax / Tip / Total
 ```
 
-## 8. Responsive
+## Changes in `src/routes/_authenticated/-pos/PosClient.tsx`
 
-- POS: lg = two-column sticky right cart; md/sm = left panel full-width with bottom-sheet cart (sticky bar with total + "View cart / Charge").
-- Admin: sidebar collapses (already does); tables → stacked cards under md; all touch targets ≥ 44px, primary actions ≥ 48px.
+1. **Delete `CheckoutPanel`** and remove the `mode: "cart" | "checkout"` state. The right panel (desktop and mobile sheet) always renders the cart.
+2. **Expand `CartPanel`** to include, between the items list and the totals:
+   - Loyalty quick actions block (moved verbatim from CheckoutPanel: free eyebrow, redeem points).
+   - **Discount ($)** input.
+   - **Tip** row: existing preset % chips + custom $ + "No tip".
+   - Totals already show Subtotal / Discount / Tax / Total — add a Tip row when `tip > 0` (already wired in the checkout totals block).
+3. **`Charge` button** stays at the bottom of the cart, label `Charge {fmt(grandTotal)}`, disabled when cart is empty. Clicking it opens a new **`PaymentMethodDialog`** (shadcn `Dialog`) instead of switching modes.
+4. **New `PaymentMethodDialog`** — small, 3 large buttons (Cash / Card / Zelle, reusing the existing `PayBtn` style and `Banknote` / `CreditCard` / `Wallet` icons). Header shows `Total {fmt(grandTotal)}`. Clicking a button:
+   - Sets `method` and immediately calls `completeSale()` (no cash-tendered / change screen, no confirm step).
+   - While the mutation is pending, all three buttons disable and show a small spinner on the clicked one.
+   - On success: close dialog, clear cart, reset discount/tip/loyalty state, show success toast + receipt (existing behavior).
+5. **Cash drawer** continues to fire from `completeSale` when `method === "cash"` (unchanged — uses `openCashDrawer(settings)`).
+6. **Remove**: `mode` state, `setMode` calls, the `<CheckoutPanel ... />` JSX in both desktop right column and the mobile `<Sheet>`, the `ArrowLeft` back-button, and the cash-tendered / change-due UI (no longer part of the flow).
+7. **Keep** the existing variable-price / gift card / membership add-to-cart dialogs — they are unrelated to this checkout simplification.
 
-## 9. `/soi` admin route + credentials
+## Files touched
 
-You asked for a private `/soi` route with username `SOI` / password `Soi@wayne2026`.
+- `src/routes/_authenticated/-pos/PosClient.tsx` — only file edited.
 
-> ⚠️ Important caveat before I build this: the project already uses Lovable Cloud auth (Supabase) with role-based access (`super_admin`, `admin`, …). A second, hard-coded username/password gate is strictly **less secure** than the existing auth and the password would have to live in the client bundle (anyone viewing source can read it). 
->
-> **My recommendation:** make `/soi` an alias route that simply redirects to `/login` and, after sign-in, to `/dashboard`, AND create a real admin user with email `soi@…` (you pick) and password `Soi@wayne2026` in the auth system. This gives you the same "secret URL" feel with real security.
->
-> If you'd rather I implement the literal hard-coded `SOI` / `Soi@wayne2026` gate in addition to real auth, say "use hard-coded gate" and I will, with the security caveat documented in code.
+## Out of scope
 
-I'll default to the recommended approach unless you say otherwise.
-
-## 10. Files touched (high-level)
-
-- New migration (services reseed + new tables + RPC + settings columns).
-- `src/lib/cashDrawer.ts` (new)
-- `src/lib/pos.functions.ts` (new — checkout server fn that creates order+items+payment+customer+drawer status atomically)
-- `src/routes/_authenticated/-pos/PosClient.tsx` (rewrite to one-screen + tabs + cash drawer)
-- `src/routes/_authenticated/-pos/ReceiptDialog.tsx` (address + payment method)
-- `src/routes/_authenticated/services.tsx` (variable price, reset menu button)
-- `src/routes/_authenticated/settings.tsx` (Cash Drawer + Shifts tabs, business prefill)
-- `src/routes/_authenticated/reports.tsx` (new)
-- `src/routes/_authenticated/gift-cards.tsx`, `memberships.tsx` (new admin lists)
-- `src/routes/soi.tsx` (new alias redirect)
-- `src/components/AppSidebar.tsx` (add Reports / Gift Cards / Memberships nav)
-
-## Open questions before I start
-
-1. **`/soi` gate** — go with my recommended redirect + real admin user, or hard-code the credentials as you wrote?
-2. **Membership types** — you didn't list specific membership tiers/prices. OK to start with free-form (admin enters type + price per sale) and add presets later?
-3. **Existing service data** — confirm OK to **wipe** the current `services` table and reseed from the menu (existing past orders keep their snapshot in `order_items.service_name` + `unit_price`, so reports stay intact).
-
-Once you answer these I'll execute the migration and ship the code.
+- No DB or server-function changes. `completeSale` keeps its current signature and behavior.
+- No changes to receipt, reports, services, settings, or the mobile bottom-bar trigger (it still opens the cart sheet — which now contains the inline discount/tip and the same Charge button).
+- Cash-tendered / change-due is dropped from the UI per the one-step requirement. If you want it back as an optional drawer-side input, say so and I'll add it as a collapsible "Cash received" inside the Cash button row.
