@@ -441,38 +441,24 @@ export function PosClient() {
           </div>
         </div>
 
-        {/* RIGHT PANEL — cart OR checkout (desktop/tablet large) */}
+        {/* RIGHT PANEL — single-step cart (desktop/tablet large) */}
         <aside className="hidden w-[420px] flex-none flex-col border-l border-border bg-card md:flex">
-
-          {mode === "cart" ? (
-            <CartPanel
-              cart={cart} customer={customer}
-              subtotal={subtotal} totalDiscount={totalDiscount} tax={tax}
-              grandTotal={+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2)}
-              updateQty={updateQty} removeItem={removeItem}
-              onClear={() => setCart([])}
-              onCharge={() => setMode("checkout")}
-            />
-          ) : (
-            <CheckoutPanel
-              subtotal={subtotal}
-              discount={discount} setDiscount={setDiscount}
-              loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
-              pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
-              canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
-              onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
-              totalDiscount={totalDiscount} tax={tax} tip={tip}
-              baseForTip={baseForTip} grandTotal={grandTotal}
-              tipPct={tipPct} setTipPct={setTipPct}
-              tipPresets={tipPresets}
-              tipCustom={tipCustom} setTipCustom={setTipCustom}
-              method={method} setMethod={setMethod}
-              tendered={tendered} setTendered={setTendered}
-              pending={completeSale.isPending}
-              onBack={() => { setMode("cart"); resetCheckoutState(); }}
-              onComplete={() => completeSale.mutate()}
-            />
-          )}
+          <CartPanel
+            cart={cart} customer={customer}
+            subtotal={subtotal} totalDiscount={totalDiscount} tax={tax} tip={tip}
+            baseForTip={baseForTip} grandTotal={grandTotal}
+            discount={discount} setDiscount={setDiscount}
+            tipPct={tipPct} setTipPct={setTipPct}
+            tipPresets={tipPresets}
+            tipCustom={tipCustom} setTipCustom={setTipCustom}
+            loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
+            pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
+            canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
+            onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
+            updateQty={updateQty} removeItem={removeItem}
+            onClear={() => { setCart([]); resetCheckoutState(); }}
+            onCharge={() => setPayOpen(true)}
+          />
         </aside>
       </div>
 
@@ -488,7 +474,7 @@ export function PosClient() {
             {cart.reduce((s, i) => s + i.quantity, 0)} item
             {cart.reduce((s, i) => s + i.quantity, 0) === 1 ? "" : "s"}
           </span>
-          <span>{fmt(+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2))}</span>
+          <span>{fmt(grandTotal)}</span>
         </Button>
       </div>
 
@@ -496,38 +482,35 @@ export function PosClient() {
         <SheetContent side="right" className="flex w-full max-w-md flex-col p-0 sm:max-w-md">
           <SheetHeader className="sr-only"><SheetTitle>Cart</SheetTitle></SheetHeader>
           <div className="flex h-full flex-col">
-            {mode === "cart" ? (
-              <CartPanel
-                cart={cart} customer={customer}
-                subtotal={subtotal} totalDiscount={totalDiscount} tax={tax}
-                grandTotal={+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2)}
-                updateQty={updateQty} removeItem={removeItem}
-                onClear={() => setCart([])}
-                onCharge={() => setMode("checkout")}
-              />
-            ) : (
-              <CheckoutPanel
-                subtotal={subtotal}
-                discount={discount} setDiscount={setDiscount}
-                loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
-                pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
-                canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
-                onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
-                totalDiscount={totalDiscount} tax={tax} tip={tip}
-                baseForTip={baseForTip} grandTotal={grandTotal}
-                tipPct={tipPct} setTipPct={setTipPct}
-                tipPresets={tipPresets}
-                tipCustom={tipCustom} setTipCustom={setTipCustom}
-                method={method} setMethod={setMethod}
-                tendered={tendered} setTendered={setTendered}
-                pending={completeSale.isPending}
-                onBack={() => { setMode("cart"); resetCheckoutState(); }}
-                onComplete={() => completeSale.mutate()}
-              />
-            )}
+            <CartPanel
+              cart={cart} customer={customer}
+              subtotal={subtotal} totalDiscount={totalDiscount} tax={tax} tip={tip}
+              baseForTip={baseForTip} grandTotal={grandTotal}
+              discount={discount} setDiscount={setDiscount}
+              tipPct={tipPct} setTipPct={setTipPct}
+              tipPresets={tipPresets}
+              tipCustom={tipCustom} setTipCustom={setTipCustom}
+              loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
+              pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
+              canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
+              onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
+              updateQty={updateQty} removeItem={removeItem}
+              onClear={() => { setCart([]); resetCheckoutState(); }}
+              onCharge={() => setPayOpen(true)}
+            />
           </div>
         </SheetContent>
       </Sheet>
+
+      <PaymentMethodDialog
+        open={payOpen}
+        onOpenChange={(o) => { if (!completeSale.isPending) setPayOpen(o); }}
+        grandTotal={grandTotal}
+        onChoose={chargeWith}
+        pending={completeSale.isPending}
+        payingMethod={payingMethod}
+      />
+
 
       <CustomerSearchDialog
         open={custDialog} onOpenChange={setCustDialog}
