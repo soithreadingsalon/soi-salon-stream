@@ -7,13 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, Minus, Trash2, Search, UserPlus, X, Star, Gift,
   Sparkles, Flame, Flower, Scissors, Palette, User, CreditCard,
-  Banknote, Wallet, ArrowLeft,
+  Banknote, Wallet, ArrowLeft, IdCard, ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ReceiptDialog } from "./ReceiptDialog";
@@ -22,6 +25,7 @@ import { openCashDrawer } from "@/lib/cashDrawer";
 type Service = {
   id: string; name: string; price: number; starts_at: boolean;
   taxable: boolean; category_id: string;
+  is_variable_price?: boolean; price_label?: string | null;
 };
 type Category = { id: string; name: string; slug: string; sort_order: number; icon: string | null };
 type Customer = {
@@ -33,8 +37,10 @@ type Loyalty = {
   eyebrow_threading_count: number; free_eyebrow_credits: number;
 };
 type CartItem = {
-  uid: string; service_id: string; service_name: string;
+  uid: string; service_id: string | null; service_name: string;
   unit_price: number; quantity: number; taxable: boolean; is_free?: boolean;
+  item_type?: "service" | "gift_card" | "membership";
+  meta?: any;
 };
 type PayMethod = "cash" | "card" | "zelle";
 
