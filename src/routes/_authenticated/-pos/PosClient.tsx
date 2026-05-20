@@ -1039,8 +1039,9 @@ function CustomerBar({
         </div>
       </div>
       <Button variant="outline" size="sm" onClick={onPick}>Switch</Button>
-      <button onClick={onClear} className="rounded-full p-1 hover:bg-muted">
-        <X className="h-4 w-4 text-muted-foreground" />
+      <button type="button" onClick={onClear} aria-label="Detach customer"
+        className="rounded-full p-1 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
+        <X className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
       </button>
     </div>
   );
