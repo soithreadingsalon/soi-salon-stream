@@ -799,8 +799,7 @@ function CartPanel({
           <Row label="Subtotal" value={fmt(subtotal)} />
           {totalDiscount > 0 && <Row label="Discount" value={`-${fmt(totalDiscount)}`} />}
           <Row label="Tax" value={fmt(tax)} />
-          {tip > 0 && <Row label="Tip" value={fmt(tip)} />}
-          {totalDiscount > 0 && <Row label="Discount" value={`-${fmt(totalDiscount)}`} />}
+          {tip > 0 && <Row label="Tip" value={fmt(tip)} />
           <Row label="Tax" value={fmt(tax)} />
           <Separator className="my-2" />
           <div className="flex items-baseline justify-between">
