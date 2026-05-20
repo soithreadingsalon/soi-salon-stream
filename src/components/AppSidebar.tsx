@@ -7,6 +7,7 @@ import {
   Settings,
   LogOut,
   History,
+  IdCard,
 } from "lucide-react";
 import {
   Sidebar,
@@ -30,6 +31,7 @@ const items = [
   { title: "My Sales", url: "/my-sales", icon: History, roles: ["cashier"] },
   { title: "Customers", url: "/customers", icon: Users, roles: ["super_admin", "admin", "manager"] },
   { title: "Services", url: "/services", icon: Sparkles, roles: ["super_admin", "admin"] },
+  { title: "Memberships", url: "/memberships", icon: IdCard, roles: ["super_admin", "admin", "manager"] },
   { title: "Settings", url: "/settings", icon: Settings, roles: ["super_admin", "admin"] },
 ] as const;
 

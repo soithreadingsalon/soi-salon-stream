@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SoiRouteImport } from './routes/soi'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
@@ -16,10 +17,16 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedServicesRouteImport } from './routes/_authenticated/services'
 import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
 import { Route as AuthenticatedMySalesRouteImport } from './routes/_authenticated/my-sales'
+import { Route as AuthenticatedMembershipsRouteImport } from './routes/_authenticated/memberships'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 
+const SoiRoute = SoiRouteImport.update({
+  id: '/soi',
+  path: '/soi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -54,6 +61,12 @@ const AuthenticatedMySalesRoute = AuthenticatedMySalesRouteImport.update({
   path: '/my-sales',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedMembershipsRoute =
+  AuthenticatedMembershipsRouteImport.update({
+    id: '/memberships',
+    path: '/memberships',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -74,8 +87,10 @@ const AuthenticatedCustomersCustomerIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/soi': typeof SoiRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/memberships': typeof AuthenticatedMembershipsRoute
   '/my-sales': typeof AuthenticatedMySalesRoute
   '/pos': typeof AuthenticatedPosRoute
   '/services': typeof AuthenticatedServicesRoute
@@ -85,8 +100,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/soi': typeof SoiRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/memberships': typeof AuthenticatedMembershipsRoute
   '/my-sales': typeof AuthenticatedMySalesRoute
   '/pos': typeof AuthenticatedPosRoute
   '/services': typeof AuthenticatedServicesRoute
@@ -98,8 +115,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
+  '/soi': typeof SoiRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/memberships': typeof AuthenticatedMembershipsRoute
   '/_authenticated/my-sales': typeof AuthenticatedMySalesRoute
   '/_authenticated/pos': typeof AuthenticatedPosRoute
   '/_authenticated/services': typeof AuthenticatedServicesRoute
@@ -111,8 +130,10 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/soi'
     | '/customers'
     | '/dashboard'
+    | '/memberships'
     | '/my-sales'
     | '/pos'
     | '/services'
@@ -122,8 +143,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/soi'
     | '/customers'
     | '/dashboard'
+    | '/memberships'
     | '/my-sales'
     | '/pos'
     | '/services'
@@ -134,8 +157,10 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/login'
+    | '/soi'
     | '/_authenticated/customers'
     | '/_authenticated/dashboard'
+    | '/_authenticated/memberships'
     | '/_authenticated/my-sales'
     | '/_authenticated/pos'
     | '/_authenticated/services'
@@ -147,10 +172,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
+  SoiRoute: typeof SoiRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/soi': {
+      id: '/soi'
+      path: '/soi'
+      fullPath: '/soi'
+      preLoaderRoute: typeof SoiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -200,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMySalesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/memberships': {
+      id: '/_authenticated/memberships'
+      path: '/memberships'
+      fullPath: '/memberships'
+      preLoaderRoute: typeof AuthenticatedMembershipsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -242,6 +282,7 @@ const AuthenticatedCustomersRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedMembershipsRoute: typeof AuthenticatedMembershipsRoute
   AuthenticatedMySalesRoute: typeof AuthenticatedMySalesRoute
   AuthenticatedPosRoute: typeof AuthenticatedPosRoute
   AuthenticatedServicesRoute: typeof AuthenticatedServicesRoute
@@ -251,6 +292,7 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedMembershipsRoute: AuthenticatedMembershipsRoute,
   AuthenticatedMySalesRoute: AuthenticatedMySalesRoute,
   AuthenticatedPosRoute: AuthenticatedPosRoute,
   AuthenticatedServicesRoute: AuthenticatedServicesRoute,
@@ -265,6 +307,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
+  SoiRoute: SoiRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
