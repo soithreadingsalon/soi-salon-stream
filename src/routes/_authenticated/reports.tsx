@@ -383,10 +383,10 @@ function ReportsPage() {
 
 function Kpi({ label, value, sub, small }: { label: string; value: string; sub?: string; small?: boolean }) {
   return (
-    <Card className="border-border/60 shadow-soft">
+    <Card className="kpi border-border/60 shadow-soft">
       <CardContent className="p-4">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-        <p className={`font-display ${small ? "text-base" : "text-2xl"} font-semibold`}>{value}</p>
+        <p className="kpi-label text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+        <p className={`kpi-value font-display ${small ? "text-base" : "text-2xl"} font-semibold`}>{value}</p>
         {sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
       </CardContent>
     </Card>
