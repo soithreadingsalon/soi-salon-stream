@@ -159,36 +159,59 @@ function ReportsPage() {
       .slice(0, 15);
   }, [items, completedOrders]);
 
-  const downloadCSV = () => {
-    const headers = ["Order #", "Date", "Status", "Subtotal", "Discount", "Tax", "Tip", "Total", "Cashier", "Methods"];
-    const rows = completedOrders.map((o) => {
+  const buildOrderRows = () =>
+    completedOrders.map((o) => {
       const pays = paymentByOrder.get(o.id) ?? [];
-      const methods = pays.map((p: any) => p.payment_method ?? p.method).join("|");
       const cashier = (cashiers as any[]).find((c) => c.id === o.cashier_id);
-      return [
-        o.order_number,
-        new Date(o.completed_at ?? o.created_at).toLocaleString(),
-        o.status,
-        o.subtotal, o.discount_total, o.tax_total, o.tip_total, o.total,
-        cashier?.full_name ?? cashier?.email ?? "",
-        methods,
-      ];
+      return {
+        "Order #": o.order_number,
+        Date: new Date(o.completed_at ?? o.created_at).toLocaleString(),
+        Cashier: cashier?.full_name ?? cashier?.email ?? "",
+        Subtotal: Number(o.subtotal),
+        Discount: Number(o.discount_total),
+        Tax: Number(o.tax_total),
+        Tip: Number(o.tip_total),
+        Total: Number(o.total),
+        Methods: pays.map((p: any) => p.payment_method ?? p.method).join("|"),
+      };
     });
-    const csv =
-      [headers, ...rows]
-        .map((r) => r.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
-        .join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `soi-report-${from}-to-${to}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+
+  const downloadCSV = () => downloadCsvOrders(buildOrderRows(), `soi-report-${from}-to-${to}.csv`);
+
+  const downloadExcel = () => {
+    downloadExcelReport(
+      {
+        title: "Sales Report",
+        fromDate: from,
+        toDate: to,
+        generatedAt: new Date().toLocaleString(),
+        kpis: [
+          ["Gross sales", kpis.totalRevenue],
+          ["Net sales", kpis.netSales],
+          ["Tax collected", kpis.totalTax],
+          ["Tips", kpis.totalTips],
+          ["Discount given", kpis.totalDiscount],
+          ["Orders", kpis.orderCount],
+          ["Avg ticket", kpis.avgTicket],
+        ],
+        orders: buildOrderRows(),
+        byMethod: byMethod.map(([m, v]) => ({ Method: m, Count: v.count, Amount: v.amount })),
+        topServices: topServices.map(([n, v]) => ({ Service: n, Qty: v.qty, Revenue: v.amount })),
+      },
+      `soi-report-${from}-to-${to}.xlsx`,
+    );
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8 print:p-0">
+    <div className="print-doc mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+      {/* Print-only header */}
+      <div className="print-only mb-4">
+        <h1>SOI Threading & Salon — Sales Report</h1>
+        <p style={{ fontSize: "10pt", color: "#444", margin: 0 }}>
+          {from} to {to} · Generated {new Date().toLocaleString()}
+        </p>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div>
           <h1 className="flex items-center gap-2 font-display text-3xl font-semibold">
@@ -197,8 +220,11 @@ function ReportsPage() {
           <p className="text-sm text-muted-foreground">Sales, payments, top services</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={downloadExcel} disabled={completedOrders.length === 0}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" /> Excel
+          </Button>
           <Button variant="outline" onClick={downloadCSV} disabled={completedOrders.length === 0}>
-            <Download className="mr-2 h-4 w-4" /> Download CSV
+            <Download className="mr-2 h-4 w-4" /> CSV
           </Button>
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="mr-2 h-4 w-4" /> Print
