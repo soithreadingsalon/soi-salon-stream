@@ -673,9 +673,13 @@ function MembershipDialog({
 }
 
 
-/* ============== CART PANEL ============== */
+/* ============== CART PANEL (one-step checkout) ============== */
 function CartPanel({
-  cart, customer, subtotal, totalDiscount, tax, grandTotal,
+  cart, customer, subtotal, totalDiscount, tax, tip, baseForTip, grandTotal,
+  discount, setDiscount,
+  tipPct, setTipPct, tipPresets, tipCustom, setTipCustom,
+  loyalty: _loyalty, maxRedeemable, pointsRedeem, setPointsRedeem,
+  canRedeemFree, onAddFreeEyebrow,
   updateQty, removeItem, onClear, onCharge,
 }: any) {
   const cartCount = cart.reduce((s: number, i: CartItem) => s + i.quantity, 0);
