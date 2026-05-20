@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SoiLogo } from "@/components/SoiLogo";
+import { ClockWidget } from "@/components/ClockWidget";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthLayout,
