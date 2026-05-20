@@ -88,7 +88,7 @@ function MySalesPage() {
       const { data } = await supabase
         .from("worker_shifts")
         .select("clock_in_at, clock_out_at")
-        .eq("user_id", user!.id)
+        .eq("worker_id", user!.id)
         .gte("clock_in_at", fromIso)
         .lte("clock_in_at", toIso);
       return data ?? [];
