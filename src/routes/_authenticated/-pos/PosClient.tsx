@@ -17,6 +17,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ReceiptDialog } from "./ReceiptDialog";
+import { openCashDrawer } from "@/lib/cashDrawer";
 
 type Service = {
   id: string; name: string; price: number; starts_at: boolean;
