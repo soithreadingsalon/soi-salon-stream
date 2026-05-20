@@ -119,6 +119,44 @@ function BusinessTab() {
         <Field label="Timezone"><Input value={form.timezone ?? ""} onChange={(e) => upd("timezone", e.target.value)} /></Field>
         <Field label="Receipt footer"><Textarea rows={2} value={form.receipt_footer ?? ""} onChange={(e) => upd("receipt_footer", e.target.value)} /></Field>
         <Field label="Refund policy"><Textarea rows={2} value={form.refund_policy ?? ""} onChange={(e) => upd("refund_policy", e.target.value)} /></Field>
+
+        <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-base">Cash drawer</h3>
+              <p className="text-xs text-muted-foreground">Opens automatically only after a confirmed cash payment.</p>
+            </div>
+            <Switch checked={!!form.cash_drawer_enabled} onCheckedChange={(v) => upd("cash_drawer_enabled", v)} />
+          </div>
+          {form.cash_drawer_enabled && (
+            <>
+              <div className="grid gap-3 md:grid-cols-3">
+                <Field label="Connection type">
+                  <select className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.cash_drawer_connection_type ?? "manual"} onChange={(e) => upd("cash_drawer_connection_type", e.target.value)}>
+                    <option value="manual">Manual</option>
+                    <option value="receipt_printer">Receipt printer (print to open)</option>
+                    <option value="escpos_network">Network ESC/POS printer</option>
+                    <option value="escpos_usb">USB ESC/POS (advanced)</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </Field>
+                <Field label="Printer IP (network mode)"><Input value={form.cash_drawer_printer_ip ?? ""} onChange={(e) => upd("cash_drawer_printer_ip", e.target.value)} placeholder="192.168.1.50" /></Field>
+                <Field label="Printer port"><Input type="number" value={form.cash_drawer_printer_port ?? 9100} onChange={(e) => upd("cash_drawer_printer_port", Number(e.target.value))} /></Field>
+              </div>
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Network &amp; USB modes need a local POS bridge on the workstation. Without it the transaction still saves and the drawer is marked &quot;failed&quot;.
+              </p>
+              <Button type="button" variant="outline" size="sm" onClick={async () => {
+                const { openCashDrawer } = await import("@/lib/cashDrawer");
+                const status = await openCashDrawer(form);
+                if (status === "opened") toast.success("Drawer signal sent");
+                else if (status === "disabled") toast.info("Drawer is disabled");
+                else toast.error(`Drawer ${status}`);
+              }}>Test cash drawer</Button>
+            </>
+          )}
+        </div>
+
         <div className="flex justify-end">
           <Button onClick={() => mut.mutate()} disabled={mut.isPending} className="bg-primary text-primary-foreground hover:bg-primary/90">
             {mut.isPending ? "Saving…" : "Save changes"}
