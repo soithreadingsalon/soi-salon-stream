@@ -403,6 +403,15 @@ export function PosClient() {
                     </button>
                   );
                 })}
+                <span className="mx-1 h-7 w-px self-center bg-border" />
+                <button onClick={() => setGiftOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20">
+                  <Gift className="h-4 w-4 text-gold" /> Gift card
+                </button>
+                <button onClick={() => setMemOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20">
+                  <IdCard className="h-4 w-4 text-gold" /> Membership
+                </button>
               </div>
             )}
           </div>
