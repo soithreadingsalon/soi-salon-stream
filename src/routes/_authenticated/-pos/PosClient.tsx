@@ -213,11 +213,9 @@ export function PosClient() {
 
   useEffect(() => { setPointsRedeem(0); }, [customer?.id]);
 
-  // Reset checkout panel state whenever we leave it
   const resetCheckoutState = () => {
     setDiscount(0); setPointsRedeem(0);
     setTipPct(null); setTipCustom(0);
-    setMethod(null); setTendered(0);
   };
 
   const maxRedeemable = loyalty
