@@ -422,7 +422,7 @@ export function PosClient() {
                   className="group flex h-28 flex-col justify-between rounded-xl border-2 border-border bg-card p-3.5 text-left shadow-soft transition active:scale-95 hover:-translate-y-0.5 hover:border-gold hover:shadow-lift">
                   <span className="text-base font-semibold leading-tight text-foreground line-clamp-2">{s.name}</span>
                   <span className="text-lg font-bold text-gold">
-                    {s.starts_at ? `${fmt(s.price)}+` : fmt(s.price)}
+                    {s.price_label ?? (s.starts_at ? `${fmt(s.price)} & up` : fmt(s.price))}
                   </span>
                 </button>
               ))}
