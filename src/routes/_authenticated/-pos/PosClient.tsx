@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, Minus, Trash2, Search, UserPlus, X, Star, Gift,
   Sparkles, Flame, Flower, Scissors, Palette, User, CreditCard,
-  Banknote, Wallet, ArrowLeft, IdCard, ShoppingBag,
+  Banknote, Wallet, IdCard, ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
