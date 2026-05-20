@@ -470,6 +470,59 @@ export function PosClient() {
         </aside>
       </div>
 
+      {/* MOBILE / TABLET cart bar */}
+      <div className="flex-none border-t border-border bg-card px-3 py-2 md:hidden">
+        <Button
+          onClick={() => setMobileCartOpen(true)}
+          disabled={cart.length === 0}
+          className="h-14 w-full justify-between bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          <span className="flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5" />
+            {cart.reduce((s, i) => s + i.quantity, 0)} item
+            {cart.reduce((s, i) => s + i.quantity, 0) === 1 ? "" : "s"}
+          </span>
+          <span>{fmt(+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2))}</span>
+        </Button>
+      </div>
+
+      <Sheet open={mobileCartOpen} onOpenChange={setMobileCartOpen}>
+        <SheetContent side="right" className="flex w-full max-w-md flex-col p-0 sm:max-w-md">
+          <SheetHeader className="sr-only"><SheetTitle>Cart</SheetTitle></SheetHeader>
+          <div className="flex h-full flex-col">
+            {mode === "cart" ? (
+              <CartPanel
+                cart={cart} customer={customer}
+                subtotal={subtotal} totalDiscount={totalDiscount} tax={tax}
+                grandTotal={+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2)}
+                updateQty={updateQty} removeItem={removeItem}
+                onClear={() => setCart([])}
+                onCharge={() => setMode("checkout")}
+              />
+            ) : (
+              <CheckoutPanel
+                subtotal={subtotal}
+                discount={discount} setDiscount={setDiscount}
+                loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
+                pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
+                canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
+                onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
+                totalDiscount={totalDiscount} tax={tax} tip={tip}
+                baseForTip={baseForTip} grandTotal={grandTotal}
+                tipPct={tipPct} setTipPct={setTipPct}
+                tipPresets={tipPresets}
+                tipCustom={tipCustom} setTipCustom={setTipCustom}
+                method={method} setMethod={setMethod}
+                tendered={tendered} setTendered={setTendered}
+                pending={completeSale.isPending}
+                onBack={() => { setMode("cart"); resetCheckoutState(); }}
+                onComplete={() => completeSale.mutate()}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <CustomerSearchDialog
         open={custDialog} onOpenChange={setCustDialog}
         onPick={(c) => { setCustomer(c); setCustDialog(false); }}
@@ -480,6 +533,24 @@ export function PosClient() {
         userId={user!.id}
         onCreated={(c) => { setCustomer(c); setNewCustOpen(false); }}
       />
+      <VariablePriceDialog
+        svc={varPriceSvc}
+        onClose={() => setVarPriceSvc(null)}
+        onConfirm={(price) => {
+          if (varPriceSvc) addService(varPriceSvc, { priceOverride: price });
+          setVarPriceSvc(null);
+        }}
+      />
+      <GiftCardDialog
+        open={giftOpen}
+        onOpenChange={setGiftOpen}
+        onAdd={(v) => { addGiftCard(v); setGiftOpen(false); }}
+      />
+      <MembershipDialog
+        open={memOpen}
+        onOpenChange={setMemOpen}
+        onAdd={(v) => { addMembership(v); setMemOpen(false); }}
+      />
       <ReceiptDialog
         orderId={receiptOrderId}
         onClose={() => setReceiptOrderId(null)}
@@ -488,6 +559,130 @@ export function PosClient() {
     </div>
   );
 }
+
+/* ============== VARIABLE PRICE ============== */
+function VariablePriceDialog({
+  svc, onClose, onConfirm,
+}: { svc: Service | null; onClose: () => void; onConfirm: (price: number) => void }) {
+  const [price, setPrice] = useState<number>(0);
+  useEffect(() => { if (svc) setPrice(Number(svc.price)); }, [svc]);
+  if (!svc) return null;
+  return (
+    <Dialog open={!!svc} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl">{svc.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Menu price: <span className="font-medium text-foreground">{svc.price_label ?? `$${Number(svc.price).toFixed(2)} & up`}</span>.
+            Enter the final price for this service.
+          </p>
+          <div className="space-y-1.5">
+            <Label>Price ($)</Label>
+            <Input
+              autoFocus type="number" min="0" step="0.01"
+              value={price || ""}
+              onChange={(e) => setPrice(Number(e.target.value) || 0)}
+              className="h-12 text-lg font-semibold"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => onConfirm(price)}
+            disabled={price <= 0}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            Add to cart
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ============== GIFT CARD ============== */
+function GiftCardDialog({
+  open, onOpenChange, onAdd,
+}: { open: boolean; onOpenChange: (b: boolean) => void; onAdd: (v: { amount: number; buyerName?: string; recipientName?: string }) => void }) {
+  const [amount, setAmount] = useState(0);
+  const [buyerName, setBuyer] = useState("");
+  const [recipientName, setRecipient] = useState("");
+  useEffect(() => { if (open) { setAmount(0); setBuyer(""); setRecipient(""); } }, [open]);
+  const presets = [25, 50, 75, 100, 150, 200];
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle className="font-display text-xl">Sell gift card</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            {presets.map((p) => (
+              <button key={p} onClick={() => setAmount(p)}
+                className={`rounded-lg border-2 p-3 text-center font-semibold ${
+                  amount === p ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
+                }`}>${p}</button>
+            ))}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Amount ($)</Label>
+            <Input type="number" min="0" step="0.01" value={amount || ""}
+              onChange={(e) => setAmount(Number(e.target.value) || 0)} className="h-11 text-lg" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label>Buyer (optional)</Label>
+              <Input value={buyerName} onChange={(e) => setBuyer(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>Recipient (optional)</Label>
+              <Input value={recipientName} onChange={(e) => setRecipient(e.target.value)} /></div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button disabled={amount <= 0}
+            onClick={() => onAdd({ amount, buyerName: buyerName || undefined, recipientName: recipientName || undefined })}
+            className="bg-primary text-primary-foreground hover:bg-primary/90">Add to cart</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ============== MEMBERSHIP ============== */
+function MembershipDialog({
+  open, onOpenChange, onAdd,
+}: { open: boolean; onOpenChange: (b: boolean) => void; onAdd: (v: { type: string; price: number; expirationDate?: string }) => void }) {
+  const [type, setType] = useState("");
+  const [price, setPrice] = useState(0);
+  const [exp, setExp] = useState("");
+  useEffect(() => { if (open) { setType(""); setPrice(0); setExp(""); } }, [open]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle className="font-display text-xl">Sell membership</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5"><Label>Membership type *</Label>
+            <Input autoFocus value={type} onChange={(e) => setType(e.target.value)}
+              placeholder="e.g. Monthly Unlimited Threading" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label>Price ($) *</Label>
+              <Input type="number" min="0" step="0.01" value={price || ""}
+                onChange={(e) => setPrice(Number(e.target.value) || 0)} className="h-11" /></div>
+            <div className="space-y-1.5"><Label>Expires</Label>
+              <Input type="date" value={exp} onChange={(e) => setExp(e.target.value)} className="h-11" /></div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button disabled={!type || price <= 0}
+            onClick={() => onAdd({ type, price, expirationDate: exp || undefined })}
+            className="bg-primary text-primary-foreground hover:bg-primary/90">Add to cart</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 /* ============== CART PANEL ============== */
 function CartPanel({
