@@ -242,11 +242,45 @@ export function PosClient() {
       if (error) throw error;
 
       const items = cart.map((i) => ({
-        order_id: order.id, service_id: i.service_id, service_name: i.service_name,
+        order_id: order.id,
+        service_id: i.service_id,
+        service_name: i.service_name,
         unit_price: i.unit_price, quantity: i.quantity, taxable: i.taxable,
+        item_type: i.item_type ?? "service",
       }));
       const { error: iErr } = await supabase.from("order_items").insert(items);
       if (iErr) throw iErr;
+
+      // Persist gift cards / memberships that were sold in this order
+      const giftCardRows = cart.filter((i) => i.item_type === "gift_card").map((i) => ({
+        code: `GC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+        amount: i.unit_price,
+        balance: i.unit_price,
+        buyer_name: i.meta?.buyerName ?? null,
+        recipient_name: i.meta?.recipientName ?? null,
+        status: "active",
+        order_id: order.id,
+        created_by: user!.id,
+      }));
+      if (giftCardRows.length) {
+        const { error: gErr } = await supabase.from("gift_cards").insert(giftCardRows as any);
+        if (gErr) throw gErr;
+      }
+      const membershipRows = cart.filter((i) => i.item_type === "membership").map((i) => ({
+        customer_id: customer?.id ?? null,
+        customer_name: customer?.full_name ?? i.meta?.customerName ?? "Walk-in",
+        membership_type: i.meta?.type ?? "Membership",
+        price: i.unit_price,
+        expiration_date: i.meta?.expirationDate || null,
+        status: "active",
+        order_id: order.id,
+        created_by: user!.id,
+      }));
+      if (membershipRows.length) {
+        const { error: mErr } = await supabase.from("memberships").insert(membershipRows as any);
+        if (mErr) throw mErr;
+      }
+
 
       // Fire the cash drawer ONLY for confirmed cash payments
       let drawerStatus: "not_applicable" | "opened" | "failed" | "disabled" = "not_applicable";
