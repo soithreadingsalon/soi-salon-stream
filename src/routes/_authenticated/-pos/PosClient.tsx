@@ -348,6 +348,7 @@ export function PosClient() {
       setReceiptOrderId(oid);
       setCart([]); setCustomer(null);
       setMode("cart");
+      setMobileCartOpen(false);
       resetCheckoutState();
       qc.invalidateQueries({ queryKey: ["dashboard-today"] });
       qc.invalidateQueries({ queryKey: ["loyalty"] });
