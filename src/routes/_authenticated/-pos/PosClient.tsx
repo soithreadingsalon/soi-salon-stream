@@ -62,14 +62,11 @@ export function PosClient() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
 
-  // Checkout panel state
-  const [mode, setMode] = useState<"cart" | "checkout">("cart");
+  // Inline cart adjustments (no second screen)
   const [discount, setDiscount] = useState(0);
   const [pointsRedeem, setPointsRedeem] = useState(0);
   const [tipPct, setTipPct] = useState<number | null>(null);
   const [tipCustom, setTipCustom] = useState(0);
-  const [method, setMethod] = useState<PayMethod | null>(null);
-  const [tendered, setTendered] = useState(0);
 
   const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
   const [custDialog, setCustDialog] = useState(false);
@@ -78,6 +75,8 @@ export function PosClient() {
   const [giftOpen, setGiftOpen] = useState(false);
   const [memOpen, setMemOpen] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+  const [payingMethod, setPayingMethod] = useState<PayMethod | null>(null);
 
   const { data: cats = [] } = useQuery<Category[]>({
     queryKey: ["service_categories"],
