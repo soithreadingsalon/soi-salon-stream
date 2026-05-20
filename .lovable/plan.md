@@ -1,41 +1,21 @@
 ## Plan
 
-### 1. POS — remove duplicate Gift card / Membership entry
+### 1. "Edit with Lovable" badge — already removed
+I've toggled the publish setting to hide the floating "Edit with Lovable" badge on your published site (`pos.soithreadingandsalon.com` and `soi-salon-stream.lovable.app`). It will disappear within ~30 seconds. No code change needed — it's injected by the platform at publish time.
 
-The code only defines **one** pair of Gift card + Membership buttons (in the category chip row of `PosClient.tsx`, lines 413–420). I couldn't find a second pair in the source.
+### 2. Remaining "Lovable" mentions in the codebase
+A code search turned up only 5 hits, none of which are visible to end users:
 
-To resolve this correctly I'll:
-- Open the running POS page in the browser tool, take a screenshot, and locate the second (broken) Gift / Membership entry.
-- Likely candidates: a service tile auto-created in some category, a leftover row in the cart's loyalty/quick-actions strip, or a chip rendered both at the top of the catalog and inside the cart panel on tablet.
-- Delete the one that doesn't open the working `GiftCardDialog` / `MembershipDialog`, keeping the gold-ringed pair next to the category chips (those are wired to `setGiftOpen` / `setMemOpen` and known good).
+- `vite.config.ts` + `package.json` — import the build-tool package `@lovable.dev/vite-tanstack-config`. This is the actual framework powering the app; removing it breaks the build. Not user-visible.
+- `src/integrations/supabase/client.ts`, `client.server.ts`, `auth-middleware.ts` — each contains a dev-only error string `"Connect Supabase in Lovable Cloud."` that only fires if environment variables go missing. These three files are **auto-generated / preconfigured** and must not be edited manually (they get overwritten).
 
-If after inspection the only entries on screen are the working ones (i.e. you're seeing one in the catalog area + one in the side cart that does the same thing), I'll remove the cart-side ones so there's a single source of truth above the service grid.
+There are **zero** references to "Lovable" in any UI component, page, route, logo, footer, or meta tag that a customer would see.
 
-### 2. Admin Shifts — full timestamped log + multiple clock-in/out per day
+### 3. What I'll do on approval
+Nothing further — the visible badge is already hidden and there is nothing else to remove without breaking the build or editing protected platform files. I'll just confirm once you publish/refresh that the badge is gone.
 
-Right now the admin Shifts tab (`settings.tsx` → `ShiftsTab`) shows only a clock-in time + clock-out time + total hours per row, and dates render bare ISO. Each `worker_shifts` row is already one clock-in/out pair, so multiple in/outs already become multiple rows — but they're not grouped or formatted.
+If you'd also like me to:
+- (a) change the browser tab title / favicon / meta description in `__root.tsx` to your salon branding, or
+- (b) rename the published subdomain away from `*.lovable.app` (handled via custom domain — you already have `pos.soithreadingandsalon.com`),
 
-Changes:
-- Format every timestamp as **`MMM D, YYYY · h:mm:ss A`** (12-hour with AM/PM) for both `clock_in_at` and `clock_out_at`, in the admin Shifts table, in My Sales hours calc display, and in the ClockWidget tooltip.
-- Group rows by **worker → date**, with a collapsible section per worker/day listing every clock-in/out pair in chronological order plus a per-day subtotal and a per-worker grand total for the date range.
-- Add a "Sessions" count column (number of clock-in/out pairs that day) so multiple sessions are obvious at a glance.
-- Add per-worker filter dropdown next to the from/to dates.
-- Add **Export Excel** + **Print** buttons reusing the existing `reportExport` helper. Excel workbook sheets:
-  - **Summary**: total hours per worker for the range.
-  - **Sessions**: every single clock-in/out row with worker, date, clock in (AM/PM), clock out (AM/PM), hours, status, adjusted flag, admin notes.
-- Print uses the existing `print-doc` stylesheet from the last turn (bigger fonts, repeating headers).
-
-### 3. Clock-in widget — show current date & time on login
-
-`ClockWidget` (top bar) currently shows just elapsed time once a shift is open. Update:
-- Always render the **live clock**: `Wed, May 20, 2026 · 3:42:18 PM`, ticking every second, visible whether or not the worker is clocked in.
-- When clocked in, also show "On shift since {clock-in time AM/PM} · {elapsed}".
-- Toast on clock-in/out includes the timestamp (e.g. "Clocked in at 3:42 PM").
-
-### 4. Centralize timestamp formatting
-
-Create `src/lib/datetime.ts` with helpers `fmtDateTime(iso)`, `fmtTime(iso)`, `fmtDate(iso)` using `en-US` 12-hour locale options. Use across ClockWidget, ShiftsTab, my-sales, reports, ReceiptDialog so AM/PM is consistent everywhere.
-
-### Out of scope
-- No DB schema changes — `worker_shifts` already has everything we need (`clock_in_at`, `clock_out_at`, `worker_id`, `worker_name`, `total_hours`, `status`, `is_adjusted`, `admin_notes`).
-- No changes to POS checkout flow or reports KPIs.
+let me know and I'll fold those into the plan.
