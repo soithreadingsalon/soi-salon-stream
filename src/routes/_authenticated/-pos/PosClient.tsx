@@ -728,9 +728,6 @@ function CartPanel({
             ))}
           </ul>
         )}
-      </div>
-
-        )}
 
         {cart.length > 0 && (
           <div className="mt-3 space-y-3">
