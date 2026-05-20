@@ -92,7 +92,7 @@ export function PosClient() {
     queryKey: ["services"],
     queryFn: async () => {
       const { data, error } = await supabase.from("services")
-        .select("id,name,price,starts_at,taxable,category_id")
+        .select("id,name,price,starts_at,taxable,category_id,is_variable_price,price_label")
         .eq("active", true).order("sort_order");
       if (error) throw error; return data as Service[];
     },
