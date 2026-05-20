@@ -223,7 +223,7 @@ export function PosClient() {
     : 0;
 
   const completeSale = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (method: PayMethod) => {
       if (!method) throw new Error("Pick a payment method");
       if (cart.length === 0) throw new Error("Cart is empty");
 
@@ -248,7 +248,6 @@ export function PosClient() {
       const { error: iErr } = await supabase.from("order_items").insert(items);
       if (iErr) throw iErr;
 
-      // Persist gift cards / memberships that were sold in this order
       const giftCardRows = cart.filter((i) => i.item_type === "gift_card").map((i) => ({
         code: `GC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
         amount: i.unit_price,
@@ -278,8 +277,6 @@ export function PosClient() {
         if (mErr) throw mErr;
       }
 
-
-      // Fire the cash drawer ONLY for confirmed cash payments
       let drawerStatus: "not_applicable" | "opened" | "failed" | "disabled" = "not_applicable";
       if (method === "cash") {
         drawerStatus = await openCashDrawer(settings as any);
@@ -344,14 +341,25 @@ export function PosClient() {
       toast.success("Sale complete");
       setReceiptOrderId(oid);
       setCart([]); setCustomer(null);
-      setMode("cart");
+      setPayOpen(false);
+      setPayingMethod(null);
       setMobileCartOpen(false);
       resetCheckoutState();
       qc.invalidateQueries({ queryKey: ["dashboard-today"] });
       qc.invalidateQueries({ queryKey: ["loyalty"] });
     },
-    onError: (e: any) => toast.error(e.message ?? "Failed"),
+    onError: (e: any) => {
+      setPayingMethod(null);
+      toast.error(e.message ?? "Failed");
+    },
   });
+
+  const chargeWith = (m: PayMethod) => {
+    if (completeSale.isPending) return;
+    setPayingMethod(m);
+    completeSale.mutate(m);
+  };
+
 
   /* ---------------- LAYOUT ---------------- */
   return (
