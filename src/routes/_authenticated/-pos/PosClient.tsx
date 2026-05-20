@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, Minus, Trash2, Search, UserPlus, X, Star, Gift,
   Sparkles, Flame, Flower, Scissors, Palette, User, CreditCard,
-  Banknote, Wallet, IdCard, ShoppingBag,
+  Banknote, Wallet, IdCard, ShoppingBag, Keyboard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
@@ -20,7 +20,18 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ReceiptDialog } from "./ReceiptDialog";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import { openCashDrawer } from "@/lib/cashDrawer";
+
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
+function isTypingTarget(el: EventTarget | null) {
+  const t = el as HTMLElement | null;
+  if (!t) return false;
+  const tag = t.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable;
+}
 
 type Service = {
   id: string; name: string; price: number; starts_at: boolean;
@@ -77,6 +88,9 @@ export function PosClient() {
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [payingMethod, setPayingMethod] = useState<PayMethod | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [liveMsg, setLiveMsg] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const { data: cats = [] } = useQuery<Category[]>({
     queryKey: ["service_categories"],
@@ -212,6 +226,78 @@ export function PosClient() {
   const grandTotal = +(Math.max(0, subtotal - totalDiscount) + tax + tip).toFixed(2);
 
   useEffect(() => { setPointsRedeem(0); }, [customer?.id]);
+
+  // Ref to access chargeWith + pending state inside keydown listener
+  // (chargeWith is declared further down)
+  const chargeRef = useRef<{ charge: (m: PayMethod) => void; pending: boolean }>({
+    charge: () => {},
+    pending: false,
+  });
+
+  // Announce cart changes for screen readers
+  const prevCountRef = useRef(0);
+  useEffect(() => {
+    const count = cart.reduce((s, i) => s + i.quantity, 0);
+    if (count !== prevCountRef.current) {
+      setLiveMsg(`${count} item${count === 1 ? "" : "s"} in cart, total ${fmt(grandTotal)}`);
+      prevCountRef.current = count;
+    }
+  }, [cart, grandTotal]);
+
+  // Global POS keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Help: Shift + ?
+      if (e.key === "?" && (e.shiftKey || true)) {
+        if (!isTypingTarget(e.target)) {
+          e.preventDefault();
+          setShortcutsOpen((v) => !v);
+          return;
+        }
+      }
+      // Focus search: '/' or Ctrl/Cmd+K
+      if ((e.key === "/" && !isTypingTarget(e.target)) ||
+          ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k")) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+        return;
+      }
+      if (isTypingTarget(e.target)) return;
+
+      // Pay dialog active: 1/2/3 → method
+      if (payOpen && !chargeRef.current.pending) {
+        if (e.key === "1") { e.preventDefault(); chargeRef.current.charge("cash"); return; }
+        if (e.key === "2") { e.preventDefault(); chargeRef.current.charge("card"); return; }
+        if (e.key === "3") { e.preventDefault(); chargeRef.current.charge("zelle"); return; }
+      }
+
+      // Dialog open? let Radix handle Esc/etc.
+      if (custDialog || newCustOpen || varPriceSvc || giftOpen || memOpen || payOpen || shortcutsOpen) return;
+
+      // Open Pay
+      if (e.key === "Enter" && cart.length > 0) {
+        e.preventDefault();
+        setPayOpen(true);
+        return;
+      }
+      const k = e.key.toLowerCase();
+      if (k === "g") { e.preventDefault(); setGiftOpen(true); return; }
+      if (k === "m") { e.preventDefault(); setMemOpen(true); return; }
+      if (k === "c") { e.preventDefault(); setCustDialog(true); return; }
+
+      // Category 1..9
+      if (/^[1-9]$/.test(e.key)) {
+        const idx = parseInt(e.key, 10) - 1;
+        const c = cats[idx];
+        if (c) { e.preventDefault(); setActiveCat(c.id); setSearch(""); }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, cats, payOpen, custDialog, newCustOpen, varPriceSvc, giftOpen, memOpen, shortcutsOpen]);
+
 
   const resetCheckoutState = () => {
     setDiscount(0); setPointsRedeem(0);
@@ -360,10 +446,14 @@ export function PosClient() {
     completeSale.mutate(m);
   };
 
+  // Keep ref in sync for keyboard handler
+  chargeRef.current = { charge: chargeWith, pending: completeSale.isPending };
 
   /* ---------------- LAYOUT ---------------- */
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden bg-background">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-background">
+      {/* Screen-reader live region for cart updates */}
+      <div role="status" aria-live="polite" className="sr-only">{liveMsg}</div>
       {/* TOP BAR */}
       <div className="flex flex-none items-center gap-2 border-b border-border bg-card px-3 py-2">
         <div className="min-w-0 flex-1">
@@ -378,6 +468,15 @@ export function PosClient() {
             cart={cart}
           />
         </div>
+        <button
+          type="button"
+          onClick={() => setShortcutsOpen(true)}
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts (Shift + ?)"
+          className={`flex h-10 w-10 flex-none items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition hover:border-gold hover:text-foreground ${FOCUS_RING}`}
+        >
+          <Keyboard className="h-4 w-4" />
+        </button>
       </div>
 
       {/* MAIN: catalog + cart/checkout */}
@@ -386,37 +485,44 @@ export function PosClient() {
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="flex-none space-y-2 border-b border-border bg-gradient-cream p-3">
             <div className="relative">
-              <Search className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
+              <label htmlFor="pos-search" className="sr-only">Search services</label>
+              <Search className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" aria-hidden="true" />
               <Input
+                id="pos-search"
+                ref={searchRef}
                 value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search any service…"
+                placeholder="Search any service…  (press / )"
                 className="h-12 pl-11 text-base"
               />
             </div>
             {!search && (
-              <div className="flex flex-wrap gap-1.5">
-                {cats.map((c) => {
+              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Service categories">
+                {cats.map((c, idx) => {
                   const Icon = ICONS[c.icon ?? ""] ?? Sparkles;
                   const isActive = currentCatId === c.id;
                   return (
-                    <button key={c.id} onClick={() => setActiveCat(c.id)}
-                      className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    <button key={c.id} type="button" role="tab" aria-selected={isActive}
+                      onClick={() => setActiveCat(c.id)}
+                      title={idx < 9 ? `Shortcut: ${idx + 1}` : undefined}
+                      className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition ${FOCUS_RING} ${
                         isActive
                           ? "border-gold bg-card text-foreground shadow-soft"
                           : "border-border bg-card/50 text-muted-foreground hover:border-gold/60 hover:text-foreground"
                       }`}>
-                      <Icon className="h-4 w-4" />{c.name}
+                      <Icon className="h-4 w-4" aria-hidden="true" />{c.name}
                     </button>
                   );
                 })}
-                <span className="mx-1 h-7 w-px self-center bg-border" />
-                <button onClick={() => setGiftOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20">
-                  <Gift className="h-4 w-4 text-gold" /> Gift card
+                <span className="mx-1 h-7 w-px self-center bg-border" aria-hidden="true" />
+                <button type="button" onClick={() => setGiftOpen(true)}
+                  title="Shortcut: G"
+                  className={`flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20 ${FOCUS_RING}`}>
+                  <Gift className="h-4 w-4 text-gold" aria-hidden="true" /> Gift card
                 </button>
-                <button onClick={() => setMemOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20">
-                  <IdCard className="h-4 w-4 text-gold" /> Membership
+                <button type="button" onClick={() => setMemOpen(true)}
+                  title="Shortcut: M"
+                  className={`flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20 ${FOCUS_RING}`}>
+                  <IdCard className="h-4 w-4 text-gold" aria-hidden="true" /> Membership
                 </button>
               </div>
             )}
@@ -424,8 +530,9 @@ export function PosClient() {
           <div className="flex-1 overflow-auto p-3">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {visibleServices.map((s) => (
-                <button key={s.id} onClick={() => addService(s)}
-                  className="group flex h-28 flex-col justify-between rounded-xl border-2 border-border bg-card p-3.5 text-left shadow-soft transition active:scale-95 hover:-translate-y-0.5 hover:border-gold hover:shadow-lift">
+                <button key={s.id} type="button" onClick={() => addService(s)}
+                  aria-label={`Add ${s.name}, ${s.price_label ?? (s.starts_at ? `${fmt(s.price)} and up` : fmt(s.price))}`}
+                  className={`group flex h-28 flex-col justify-between rounded-xl border-2 border-border bg-card p-3.5 text-left shadow-soft transition active:scale-95 hover:-translate-y-0.5 hover:border-gold hover:shadow-lift ${FOCUS_RING}`}>
                   <span className="text-base font-semibold leading-tight text-foreground line-clamp-2">{s.name}</span>
                   <span className="text-lg font-bold text-gold">
                     {s.price_label ?? (s.starts_at ? `${fmt(s.price)} & up` : fmt(s.price))}
@@ -545,6 +652,7 @@ export function PosClient() {
         onClose={() => setReceiptOrderId(null)}
         settings={settings}
       />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 }
@@ -715,14 +823,17 @@ function CartPanel({
                 </div>
                 <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <Button size="icon" variant="outline" className="h-9 w-9"
-                      onClick={() => updateQty(i.uid, -1)}><Minus className="h-4 w-4" /></Button>
-                    <span className="w-8 text-center text-lg font-semibold">{i.quantity}</span>
-                    <Button size="icon" variant="outline" className="h-9 w-9"
-                      onClick={() => updateQty(i.uid, 1)}><Plus className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="outline" className="h-11 w-11"
+                      aria-label={`Decrease quantity of ${i.service_name}`}
+                      onClick={() => updateQty(i.uid, -1)}><Minus className="h-4 w-4" aria-hidden="true" /></Button>
+                    <span className="w-8 text-center text-lg font-semibold" aria-label={`Quantity ${i.quantity}`}>{i.quantity}</span>
+                    <Button size="icon" variant="outline" className="h-11 w-11"
+                      aria-label={`Increase quantity of ${i.service_name}`}
+                      onClick={() => updateQty(i.uid, 1)}><Plus className="h-4 w-4" aria-hidden="true" /></Button>
                   </div>
-                  <button onClick={() => removeItem(i.uid)}
-                    className="p-2 text-muted-foreground hover:text-destructive"><Trash2 className="h-5 w-5" /></button>
+                  <button type="button" onClick={() => removeItem(i.uid)}
+                    aria-label={`Remove ${i.service_name} from cart`}
+                    className={`p-2 text-muted-foreground hover:text-destructive ${FOCUS_RING} rounded-md`}><Trash2 className="h-5 w-5" aria-hidden="true" /></button>
                 </div>
               </li>
             ))}
@@ -928,8 +1039,9 @@ function CustomerBar({
         </div>
       </div>
       <Button variant="outline" size="sm" onClick={onPick}>Switch</Button>
-      <button onClick={onClear} className="rounded-full p-1 hover:bg-muted">
-        <X className="h-4 w-4 text-muted-foreground" />
+      <button type="button" onClick={onClear} aria-label="Detach customer"
+        className="rounded-full p-1 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold">
+        <X className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
       </button>
     </div>
   );
