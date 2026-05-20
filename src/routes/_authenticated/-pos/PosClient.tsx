@@ -74,6 +74,10 @@ export function PosClient() {
   const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
   const [custDialog, setCustDialog] = useState(false);
   const [newCustOpen, setNewCustOpen] = useState(false);
+  const [varPriceSvc, setVarPriceSvc] = useState<Service | null>(null);
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [memOpen, setMemOpen] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
 
   const { data: cats = [] } = useQuery<Category[]>({
     queryKey: ["service_categories"],
