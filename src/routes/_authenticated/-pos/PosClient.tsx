@@ -289,7 +289,7 @@ export function PosClient() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart.length, cats, payOpen, custDialog, newCustOpen, varPriceSvc, giftOpen, memOpen, shortcutsOpen, completeSale.isPending]);
+  }, [cart.length, cats, payOpen, custDialog, newCustOpen, varPriceSvc, giftOpen, memOpen, shortcutsOpen]);
 
 
   const resetCheckoutState = () => {
