@@ -816,153 +816,57 @@ function CartPanel({
   );
 }
 
-/* ============== CHECKOUT PANEL ============== */
-function CheckoutPanel({
-  subtotal, discount, setDiscount,
-  loyalty, maxRedeemable, pointsRedeem, setPointsRedeem,
-  canRedeemFree, onAddFreeEyebrow,
-  totalDiscount, tax, tip, baseForTip, grandTotal,
-  tipPct, setTipPct, tipPresets, tipCustom, setTipCustom,
-  method, setMethod, tendered, setTendered,
-  pending, onBack, onComplete,
-}: any) {
-  const change = method === "cash" && tendered >= grandTotal ? +(tendered - grandTotal).toFixed(2) : 0;
-  const cashOk = method !== "cash" || tendered >= grandTotal;
-  const quick = method === "cash" ? [
-    Math.ceil(grandTotal),
-    Math.ceil(grandTotal / 5) * 5,
-    Math.ceil(grandTotal / 10) * 10,
-    Math.ceil(grandTotal / 20) * 20,
-  ].filter((v, i, a) => v >= grandTotal && a.indexOf(v) === i).slice(0, 4) : [];
-
+/* ============== PAYMENT METHOD DIALOG ============== */
+function PaymentMethodDialog({
+  open, onOpenChange, grandTotal, onChoose, pending, payingMethod,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  grandTotal: number;
+  onChoose: (m: PayMethod) => void;
+  pending: boolean;
+  payingMethod: PayMethod | null;
+}) {
+  const choices: { m: PayMethod; label: string; icon: any }[] = [
+    { m: "cash", label: "Cash", icon: Banknote },
+    { m: "card", label: "Card", icon: CreditCard },
+    { m: "zelle", label: "Zelle", icon: Wallet },
+  ];
   return (
-    <>
-      <div className="flex-none border-b border-border bg-primary px-4 py-3 text-primary-foreground">
-        <div className="flex items-center gap-2">
-          <button onClick={onBack} className="rounded-full p-1.5 hover:bg-primary-foreground/10">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <h2 className="font-display text-xl">Checkout</h2>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-auto p-4 space-y-4">
-        {/* Loyalty quick actions */}
-        {(canRedeemFree || maxRedeemable > 0) && (
-          <div className="space-y-1.5 rounded-lg border-2 border-gold/50 bg-gold/5 p-2">
-            {canRedeemFree && (
-              <button onClick={onAddFreeEyebrow}
-                className="flex w-full items-center justify-between rounded-md bg-card px-3 py-2.5 text-sm font-medium hover:bg-card/70">
-                <span className="flex items-center gap-2"><Gift className="h-4 w-4 text-gold" /> Apply free eyebrow</span>
-                <Plus className="h-4 w-4" />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-2xl">
+            Charge {fmt(grandTotal)}
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Pick a payment method — the sale completes immediately.
+        </p>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {choices.map(({ m, label, icon: Icon }) => {
+            const isPaying = payingMethod === m;
+            return (
+              <button
+                key={m}
+                disabled={pending}
+                onClick={() => onChoose(m)}
+                className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 p-4 transition active:scale-95 disabled:opacity-50 ${
+                  isPaying ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
+                }`}
+              >
+                <Icon className={`h-7 w-7 ${isPaying ? "text-gold animate-pulse" : "text-muted-foreground"}`} />
+                <span className="font-display text-base">{isPaying ? "Processing…" : label}</span>
               </button>
-            )}
-            {maxRedeemable > 0 && pointsRedeem === 0 && (
-              <button onClick={() => setPointsRedeem(maxRedeemable)}
-                className="flex w-full items-center justify-between rounded-md bg-card px-3 py-2.5 text-sm font-medium hover:bg-card/70">
-                <span className="flex items-center gap-2"><Star className="h-4 w-4 text-gold" /> Redeem {maxRedeemable} pts → -{fmt(maxRedeemable / 100 * 5)}</span>
-                <Plus className="h-4 w-4" />
-              </button>
-            )}
-            {pointsRedeem > 0 && (
-              <button onClick={() => setPointsRedeem(0)}
-                className="flex w-full items-center justify-between rounded-md bg-gold/20 px-3 py-2.5 text-sm font-semibold">
-                <span>{pointsRedeem} pts redeemed</span><X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Discount */}
-        <div>
-          <Label className="text-sm font-semibold">Discount ($)</Label>
-          <Input type="number" min="0" step="0.01" value={discount || ""}
-            onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-            className="mt-1.5 h-12 text-lg" placeholder="0.00" />
+            );
+          })}
         </div>
-
-        {/* Tip */}
-        <div>
-          <Label className="text-sm font-semibold">Tip</Label>
-          <div className={`mt-1.5 grid gap-1.5 ${(tipPresets as number[]).length >= 4 ? "grid-cols-4" : (tipPresets as number[]).length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-            {(tipPresets as number[]).map((p) => {
-              const active = tipPct === p && tipCustom === 0;
-              return (
-                <button key={p}
-                  onClick={() => { setTipCustom(0); setTipPct(active ? null : p); }}
-                  className={`rounded-lg border-2 p-2.5 text-center transition active:scale-95 ${
-                    active ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
-                  }`}>
-                  <div className="font-display text-lg">{p}%</div>
-                  <div className="text-[10px] text-muted-foreground">{fmt(+(baseForTip * p / 100).toFixed(2))}</div>
-                </button>
-              );
-            })}
-          </div>
-          <div className="mt-2 flex items-center gap-2">
-            <Input type="number" min="0" step="0.01" value={tipCustom || ""}
-              onChange={(e) => { const v = Number(e.target.value) || 0; setTipCustom(v); if (v > 0) setTipPct(null); }}
-              placeholder="Custom $" className="h-10 text-base" />
-            <Button variant="outline" size="sm" onClick={() => { setTipCustom(0); setTipPct(null); }}>No tip</Button>
-          </div>
-        </div>
-
-        {/* Payment method */}
-        <div>
-          <Label className="text-sm font-semibold">Payment method</Label>
-          <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-            <PayBtn icon={Banknote} label="Cash" active={method === "cash"} onClick={() => setMethod("cash")} />
-            <PayBtn icon={CreditCard} label="Card" active={method === "card"} onClick={() => setMethod("card")} />
-            <PayBtn icon={Wallet} label="Zelle" active={method === "zelle"} onClick={() => setMethod("zelle")} />
-          </div>
-        </div>
-
-        {/* Cash tendered */}
-        {method === "cash" && (
-          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-            <Label className="text-sm font-semibold">Cash received</Label>
-            <div className="grid grid-cols-4 gap-1.5">
-              {quick.map((amt) => (
-                <button key={amt} onClick={() => setTendered(amt)}
-                  className={`rounded-lg border-2 py-2.5 font-semibold ${
-                    tendered === amt ? "border-gold bg-gold/10" : "border-border bg-card hover:border-gold/60"
-                  }`}>${amt}</button>
-              ))}
-            </div>
-            <Input type="number" min="0" step="0.01" value={tendered || ""}
-              onChange={(e) => setTendered(Number(e.target.value) || 0)}
-              placeholder="Custom amount" className="h-11 text-lg font-semibold" />
-            {tendered >= grandTotal && (
-              <div className="rounded-md bg-gold/10 p-2 text-center">
-                <p className="text-xs text-muted-foreground">Change due</p>
-                <p className="font-display text-2xl font-semibold text-gold">{fmt(change)}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex-none border-t border-border bg-muted/30 px-4 py-3">
-        <div className="space-y-1 text-base">
-          <Row label="Subtotal" value={fmt(subtotal)} />
-          {totalDiscount > 0 && <Row label="Discount" value={`-${fmt(totalDiscount)}`} />}
-          <Row label="Tax" value={fmt(tax)} />
-          {tip > 0 && <Row label="Tip" value={fmt(tip)} />}
-          <Separator className="my-2" />
-          <div className="flex items-baseline justify-between">
-            <span className="font-display text-lg">Total</span>
-            <span className="font-display text-3xl font-semibold">{fmt(grandTotal)}</span>
-          </div>
-        </div>
-        <Button size="lg" disabled={!method || !cashOk || pending}
-          onClick={onComplete}
-          className="mt-3 h-16 w-full bg-primary text-xl font-semibold text-primary-foreground hover:bg-primary/90">
-          {pending ? "Processing…" : `Complete sale · ${fmt(grandTotal)}`}
-        </Button>
-      </div>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
+
+
 
 function PayBtn({ icon: Icon, label, active, onClick }: any) {
   return (
