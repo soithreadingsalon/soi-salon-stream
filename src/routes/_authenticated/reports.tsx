@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Download, Printer, BarChart3 } from "lucide-react";
+import { Download, Printer, BarChart3, FileSpreadsheet } from "lucide-react";
+import { downloadExcelReport, downloadCsvOrders } from "@/lib/reportExport";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   component: ReportsPage,
