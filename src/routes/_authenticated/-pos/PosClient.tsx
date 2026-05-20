@@ -652,6 +652,7 @@ export function PosClient() {
         onClose={() => setReceiptOrderId(null)}
         settings={settings}
       />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 }
