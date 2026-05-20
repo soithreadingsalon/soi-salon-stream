@@ -468,6 +468,15 @@ export function PosClient() {
             cart={cart}
           />
         </div>
+        <button
+          type="button"
+          onClick={() => setShortcutsOpen(true)}
+          aria-label="Keyboard shortcuts"
+          title="Keyboard shortcuts (Shift + ?)"
+          className={`flex h-10 w-10 flex-none items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition hover:border-gold hover:text-foreground ${FOCUS_RING}`}
+        >
+          <Keyboard className="h-4 w-4" />
+        </button>
       </div>
 
       {/* MAIN: catalog + cart/checkout */}
@@ -476,37 +485,44 @@ export function PosClient() {
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <div className="flex-none space-y-2 border-b border-border bg-gradient-cream p-3">
             <div className="relative">
-              <Search className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
+              <label htmlFor="pos-search" className="sr-only">Search services</label>
+              <Search className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" aria-hidden="true" />
               <Input
+                id="pos-search"
+                ref={searchRef}
                 value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search any service…"
+                placeholder="Search any service…  (press / )"
                 className="h-12 pl-11 text-base"
               />
             </div>
             {!search && (
-              <div className="flex flex-wrap gap-1.5">
-                {cats.map((c) => {
+              <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Service categories">
+                {cats.map((c, idx) => {
                   const Icon = ICONS[c.icon ?? ""] ?? Sparkles;
                   const isActive = currentCatId === c.id;
                   return (
-                    <button key={c.id} onClick={() => setActiveCat(c.id)}
-                      className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    <button key={c.id} type="button" role="tab" aria-selected={isActive}
+                      onClick={() => setActiveCat(c.id)}
+                      title={idx < 9 ? `Shortcut: ${idx + 1}` : undefined}
+                      className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition ${FOCUS_RING} ${
                         isActive
                           ? "border-gold bg-card text-foreground shadow-soft"
                           : "border-border bg-card/50 text-muted-foreground hover:border-gold/60 hover:text-foreground"
                       }`}>
-                      <Icon className="h-4 w-4" />{c.name}
+                      <Icon className="h-4 w-4" aria-hidden="true" />{c.name}
                     </button>
                   );
                 })}
-                <span className="mx-1 h-7 w-px self-center bg-border" />
-                <button onClick={() => setGiftOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20">
-                  <Gift className="h-4 w-4 text-gold" /> Gift card
+                <span className="mx-1 h-7 w-px self-center bg-border" aria-hidden="true" />
+                <button type="button" onClick={() => setGiftOpen(true)}
+                  title="Shortcut: G"
+                  className={`flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20 ${FOCUS_RING}`}>
+                  <Gift className="h-4 w-4 text-gold" aria-hidden="true" /> Gift card
                 </button>
-                <button onClick={() => setMemOpen(true)}
-                  className="flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20">
-                  <IdCard className="h-4 w-4 text-gold" /> Membership
+                <button type="button" onClick={() => setMemOpen(true)}
+                  title="Shortcut: M"
+                  className={`flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20 ${FOCUS_RING}`}>
+                  <IdCard className="h-4 w-4 text-gold" aria-hidden="true" /> Membership
                 </button>
               </div>
             )}
