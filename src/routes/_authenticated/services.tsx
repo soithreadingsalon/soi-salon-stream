@@ -78,9 +78,20 @@ function ServicesAdmin() {
           <h1 className="font-display text-3xl font-semibold">Service catalog</h1>
           <p className="text-sm text-muted-foreground">Edit prices, durations and availability</p>
         </div>
-        <Button onClick={() => { setEditing({ category_id: currentCatId, name: "", price: 0, starts_at: false, taxable: true, commission_eligible: true, active: true, duration_minutes: 15, sort_order: visible.length + 1 }); setOpen(true); }} className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" /> New service
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={async () => {
+            if (!confirm("Reset the entire service catalog to the official SOI menu? This wipes current services. Past orders keep their snapshots.")) return;
+            const { error } = await supabase.rpc("reset_services_to_official_menu");
+            if (error) return toast.error(error.message);
+            toast.success("Service catalog reset to official menu");
+            invalidate();
+            qc.invalidateQueries({ queryKey: ["cats-admin"] });
+            qc.invalidateQueries({ queryKey: ["service_categories"] });
+          }}>Reset to Official Menu</Button>
+          <Button onClick={() => { setEditing({ category_id: currentCatId, name: "", price: 0, starts_at: false, taxable: false, commission_eligible: true, active: true, duration_minutes: 15, sort_order: visible.length + 1, is_variable_price: false, price_label: null }); setOpen(true); }} className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Plus className="mr-2 h-4 w-4" /> New service
+          </Button>
+        </div>
       </div>
 
       <Tabs value={currentCatId} onValueChange={setActive}>

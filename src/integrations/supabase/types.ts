@@ -48,6 +48,10 @@ export type Database = {
         Row: {
           address: string | null
           business_name: string
+          cash_drawer_connection_type: string
+          cash_drawer_enabled: boolean
+          cash_drawer_printer_ip: string | null
+          cash_drawer_printer_port: number
           created_at: string
           currency: string
           email: string | null
@@ -68,6 +72,10 @@ export type Database = {
         Insert: {
           address?: string | null
           business_name: string
+          cash_drawer_connection_type?: string
+          cash_drawer_enabled?: boolean
+          cash_drawer_printer_ip?: string | null
+          cash_drawer_printer_port?: number
           created_at?: string
           currency?: string
           email?: string | null
@@ -88,6 +96,10 @@ export type Database = {
         Update: {
           address?: string | null
           business_name?: string
+          cash_drawer_connection_type?: string
+          cash_drawer_enabled?: boolean
+          cash_drawer_printer_ip?: string | null
+          cash_drawer_printer_port?: number
           created_at?: string
           currency?: string
           email?: string | null
@@ -227,6 +239,48 @@ export type Database = {
         }
         Relationships: []
       }
+      gift_cards: {
+        Row: {
+          amount: number
+          balance: number
+          buyer_name: string | null
+          code: string
+          created_at: string
+          created_by: string | null
+          id: string
+          order_id: string | null
+          recipient_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          balance?: number
+          buyer_name?: string | null
+          code: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          order_id?: string | null
+          recipient_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          balance?: number
+          buyer_name?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          order_id?: string | null
+          recipient_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       loyalty_accounts: {
         Row: {
           created_at: string
@@ -290,11 +344,57 @@ export type Database = {
         }
         Relationships: []
       }
+      memberships: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          customer_name: string
+          expiration_date: string | null
+          id: string
+          membership_type: string
+          order_id: string | null
+          price: number
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name: string
+          expiration_date?: string | null
+          id?: string
+          membership_type: string
+          order_id?: string | null
+          price: number
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          customer_name?: string
+          expiration_date?: string | null
+          id?: string
+          membership_type?: string
+          order_id?: string | null
+          price?: number
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
           discount: number
           id: string
+          item_type: string
           notes: string | null
           order_id: string
           quantity: number
@@ -308,6 +408,7 @@ export type Database = {
           created_at?: string
           discount?: number
           id?: string
+          item_type?: string
           notes?: string | null
           order_id: string
           quantity?: number
@@ -321,6 +422,7 @@ export type Database = {
           created_at?: string
           discount?: number
           id?: string
+          item_type?: string
           notes?: string | null
           order_id?: string
           quantity?: number
@@ -411,6 +513,7 @@ export type Database = {
           amount: number
           card_brand: string | null
           card_last4: string | null
+          cash_drawer_status: string
           charge_id: string | null
           created_at: string
           created_by: string | null
@@ -419,12 +522,14 @@ export type Database = {
           method: Database["public"]["Enums"]["payment_method"]
           order_id: string
           payment_intent_id: string | null
+          payment_method: string | null
           status: Database["public"]["Enums"]["payment_status"]
         }
         Insert: {
           amount: number
           card_brand?: string | null
           card_last4?: string | null
+          cash_drawer_status?: string
           charge_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -433,12 +538,14 @@ export type Database = {
           method: Database["public"]["Enums"]["payment_method"]
           order_id: string
           payment_intent_id?: string | null
+          payment_method?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
         }
         Update: {
           amount?: number
           card_brand?: string | null
           card_last4?: string | null
+          cash_drawer_status?: string
           charge_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -447,6 +554,7 @@ export type Database = {
           method?: Database["public"]["Enums"]["payment_method"]
           order_id?: string
           payment_intent_id?: string | null
+          payment_method?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
         }
         Relationships: [
@@ -532,9 +640,12 @@ export type Database = {
           duration_minutes: number | null
           id: string
           image_url: string | null
+          is_variable_price: boolean
           name: string
           price: number
+          price_label: string | null
           sort_order: number
+          source: string
           starts_at: boolean
           taxable: boolean
           updated_at: string
@@ -548,9 +659,12 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           image_url?: string | null
+          is_variable_price?: boolean
           name: string
           price?: number
+          price_label?: string | null
           sort_order?: number
+          source?: string
           starts_at?: boolean
           taxable?: boolean
           updated_at?: string
@@ -564,9 +678,12 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           image_url?: string | null
+          is_variable_price?: boolean
           name?: string
           price?: number
+          price_label?: string | null
           sort_order?: number
+          source?: string
           starts_at?: boolean
           taxable?: boolean
           updated_at?: string
@@ -689,6 +806,51 @@ export type Database = {
         }
         Relationships: []
       }
+      worker_shifts: {
+        Row: {
+          admin_notes: string | null
+          clock_in_at: string
+          clock_out_at: string | null
+          created_at: string
+          id: string
+          is_adjusted: boolean
+          shift_date: string
+          status: string
+          total_hours: number | null
+          updated_at: string
+          worker_id: string
+          worker_name: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          clock_in_at?: string
+          clock_out_at?: string | null
+          created_at?: string
+          id?: string
+          is_adjusted?: boolean
+          shift_date?: string
+          status?: string
+          total_hours?: number | null
+          updated_at?: string
+          worker_id: string
+          worker_name?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          clock_in_at?: string
+          clock_out_at?: string | null
+          created_at?: string
+          id?: string
+          is_adjusted?: boolean
+          shift_date?: string
+          status?: string
+          total_hours?: number | null
+          updated_at?: string
+          worker_id?: string
+          worker_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       workers_public: {
@@ -717,6 +879,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      reset_services_to_official_menu: { Args: never; Returns: undefined }
       restore_customer: { Args: { _id: string }; Returns: undefined }
       restore_service: { Args: { _id: string }; Returns: undefined }
       soft_delete_customer: { Args: { _id: string }; Returns: undefined }
