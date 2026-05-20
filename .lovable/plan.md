@@ -1,94 +1,122 @@
-## 1. Prepopulate Business profile (Settings → Business)
+# SOI Threading Salon POS — Full Update Plan
 
-Seed `business_settings` with SOI's public info (one-time data update). User can edit anything afterwards.
+This is a large, multi-area change. I'll ship it in clear database + UI phases. Everything below uses Lovable Cloud (your existing backend) and the existing TanStack Start app — no new stacks.
 
-| Field | Value |
-|---|---|
-| business_name | Style of India — SOI Threading & Salon |
-| address | 190 Hamburg Tpke, Wayne, NJ 07470 |
-| phone | 551-301-3894 |
-| email | (leave blank — not public; admin to fill) |
-| website | https://soithreadingandsalon.com |
-| instagram | (admin to fill) |
-| timezone | America/New_York |
-| currency | USD |
-| tax_rate | 0.06625 (NJ state rate) |
-| tip_presets | 15, 18, 20 |
-| receipt_footer | "Thank you for visiting Style of India — 190 Hamburg Tpke, Wayne NJ · (551) 301-3894" |
-| hours | Mon–Sat 10:00–19:00, Sun 11:00–18:00 (editable JSON) |
+## 1. Database changes (one migration)
 
-## 2. NJ tax rule at POS
+New / updated tables:
+- `services` — wipe and reseed from the attached Final.pdf menu. Add columns: `is_variable_price boolean`, `price_label text` (e.g. "$180 & up"), `source text default 'official_menu'`. Categories normalized to: Threading, Waxing, Facials, Hair Care, Henna, Men.
+- `gift_cards` — code, amount, balance, recipient_name, buyer_name, status, timestamps.
+- `memberships` — customer_id, customer_name, membership_type, price, start_date, expiration_date, status, timestamps.
+- `orders` / `order_items` — extend `order_items` with `item_type` ('service'|'gift_card'|'membership'), keep service_id nullable. Add `payment_method` ('cash'|'card'|'zelle'), `payment_reference`, `cash_drawer_status` to `payments` or `orders`.
+- `worker_shifts` — worker_id, date, clock_in_at, clock_out_at, total_hours, status, is_adjusted, admin_notes.
+- `business_settings` — add `cash_drawer_enabled`, `cash_drawer_connection_type`, `cash_drawer_printer_ip`, `cash_drawer_printer_port`. Update business name/address/phone to the new Wayne, NJ values.
 
-NJ exempts most personal salon services (threading, waxing, haircuts, facials) from sales tax but taxes retail goods and some services. Implementation:
+DB function: `reset_services_to_official_menu()` (SECURITY DEFINER, admin-only) — wipes `services` and reseeds the exact menu.
 
-- Keep `business_settings.tax_rate = 0.06625` as the rate.
-- POS already multiplies tax only on lines where `taxable = true` — confirm this in `PosClient`/`order_items` math and fix if it taxes everything.
-- Data update: set all current rows in `services` to `taxable = false` (salon services are exempt). Admin can flip individual items back to taxable in Settings → Services if needed (retail products, tanning, etc.).
-- Show a small "Tax-exempt service (NJ)" badge next to non-taxable lines in the cart for transparency.
+RLS: admin-only writes for services/memberships/gift_cards/shifts settings; cashiers can insert orders, gift_cards, memberships, and their own shifts.
 
-## 3. Customers & Services — full admin CRUD
+## 2. POS one-screen checkout (`src/routes/_authenticated/-pos/PosClient.tsx`)
 
-Currently:
-- Customers list has Add only — add Edit and Delete actions per row, gated by `super_admin`/`admin`.
-- Services already has Edit/Delete — replace the `confirm()` flow with the new two-step delete dialog below.
-- Add Edit dialog for Customers (name, phone, email, birthday, allergies, notes, marketing opt-in).
-
-Visibility of Edit/Delete buttons: hidden for `cashier`/`manager`; visible only when `hasRole("super_admin","admin")`.
-
-## 4. Two-step delete with soft-delete fallback
-
-Reusable `<ConfirmDeleteDialog>` component used by Customers and Services:
+Single screen, no second discount step:
 
 ```text
-Step 1: "Are you sure you want to delete <name>?"
-        [No] [Yes, delete]
-
-Step 2 (after Yes):
-        "Type DELETE in capitals to permanently remove this record.
-         If you close this dialog, the record will be moved to the
-         Recycle Bin and can be recovered later."
-        [DELETE input]   [Cancel = soft-delete]   [Permanently delete = hard-delete]
+┌──────────────────────────────┬─────────────────────────┐
+│ [Threading][Waxing][Facials] │ Customer name [_____]   │
+│ [Hair Care][Henna][Men]      │ ─ Cart ───────────────  │
+│ [Gift Card][Membership]      │ • Eyebrow      $10  [x] │
+│ Search [____________]        │ • Body Wax    $180  [✎] │
+│ ┌──┬──┬──┬──┐                │ Subtotal       $190     │
+│ │  │  │  │  │  service tiles │ Discount [None ▾][__]   │
+│ └──┴──┴──┴──┘                │ Total          $190     │
+│                              │ [Clear]    [ Charge ▶ ] │
+└──────────────────────────────┴─────────────────────────┘
 ```
 
-Behaviour:
-- **Cancel / close on Step 2** → soft delete: row is copied into `customers_deleted` / `services_deleted` then removed from the live table.
-- **Type DELETE + submit** → hard delete: row is removed from the live table AND from the backup table (no recovery).
-- Toast tells the admin which path happened.
+- Variable-price services (`& up`) open a tiny inline price editor on add and a pencil in the cart.
+- Gift Card / Membership tabs swap the left panel for their own forms; submitting adds them to the cart as `item_type` rows.
+- Discount: None / Fixed $ / Percent — live recalculates total. Validates `discount ≤ subtotal`, no negatives.
+- Charge button opens a small **payment method** sheet (Cash / Card / Zelle) — that's the only extra step.
 
-## 5. Recycle Bin (Settings → new tab)
+## 3. Payment + cash drawer
 
-New `Recycle bin` tab inside `/settings` (admin-only) with two sub-sections: Customers and Services. Each row shows the original data, who deleted it, and when, plus actions:
-- **Restore** — copy row back into live table (preserving original id), then delete from backup table.
-- **Delete permanently** — hard delete from backup (single confirm).
+On confirm:
+1. Insert order, items, payment (with method + optional reference).
+2. If method = cash → call `openCashDrawer()` abstraction.
+3. Show success → clear cart.
 
-## 6. Database changes
+`src/lib/cashDrawer.ts`:
+- `openCashDrawer()` reads `business_settings.cash_drawer_*`.
+- Modes: `disabled`, `manual`, `receipt_printer` (window.print trigger), `escpos_network` (POST raw bytes `[27,112,0,25,250]` to `http://{ip}:{port}` — wrapped in try/catch with clear "needs local POS bridge" comment), `escpos_usb` (WebUSB stub with TODO).
+- Records `cash_drawer_status` = `opened` | `failed` | `not_applicable` | `disabled` on the payment row.
+- Admin Settings → Cash Drawer tab with all fields + **Test drawer** button.
 
-New migration (one call, awaiting your approval):
+## 4. Customer entry from POS
 
-- Tables `customers_deleted` and `services_deleted` mirroring the original columns + `deleted_at timestamptz default now()`, `deleted_by uuid`.
-- RLS: only `super_admin`/`admin` can `SELECT`/`INSERT`/`DELETE` on the backup tables.
-- Two SECURITY DEFINER functions for atomic moves:
-  - `soft_delete_customer(_id uuid)` / `restore_customer(_id uuid)` / `hard_delete_customer(_id uuid)`
-  - `soft_delete_service(_id uuid)` / `restore_service(_id uuid)` / `hard_delete_service(_id uuid)`
-  Each checks the caller has admin role via `has_any_role(auth.uid(), …)`.
-- Data updates (separate insert tool call):
-  - `UPDATE business_settings SET …` to prefill SOI info.
-  - `UPDATE services SET taxable = false WHERE active = true` (NJ salon services exempt).
+- Inline `Customer Name` field on the right panel, optional.
+- "Add more details" reveals phone + email.
+- On charge: lookup by name+phone/email; if no match → insert; attach `customer_id` to order. No duplicates.
 
-`orders`/`order_items` reference `customers.id` / `services.id` without a FK in the current schema, so deletes won't fail — historical orders will simply keep the snapshotted `service_name`/`customer_id` value and continue to render.
+## 5. Worker clock in / out
 
-## 7. Files to add / change
+- On first POS load each day, if no open shift → show "Clock In" modal blocking the screen.
+- Header shows clock status + Clock Out button.
+- Trying to Charge with no open shift → toast "Clock in to continue" and opens the modal.
+- Admin Settings → new **Shifts** tab: list shifts, edit clock_out + notes (marks `is_adjusted`).
 
-- **DB migration** (new) — backup tables + RPC functions.
-- **Data update** — seed business_settings + flip services.taxable.
-- `src/components/ConfirmDeleteDialog.tsx` (new) — reusable two-step dialog.
-- `src/routes/_authenticated/customers.tsx` — add Edit dialog, Delete button wired to the new dialog.
-- `src/routes/_authenticated/services.tsx` — replace `confirm()` delete with the new dialog.
-- `src/routes/_authenticated/settings.tsx` — add `Recycle bin` tab with `RecycleBinTab` component listing both backup tables + Restore / Permanently delete actions.
-- `src/routes/_authenticated/-pos/PosClient.tsx` — verify tax math uses per-line `taxable` flag; add small "Tax-exempt (NJ)" hint.
+## 6. Admin pages updates
 
-## Open caveats
+- **Services** (`services.tsx`): show category, base price, "& up" label, variable flag toggle, active toggle, sort. Add **"Reset to Official Menu"** button (calls the RPC, confirms via existing two-step delete dialog pattern).
+- **Customers** (`customers.tsx`): already has CRUD — verify columns include total visits/spend/last visit.
+- **Settings** (`settings.tsx`): existing tabs + new **Cash Drawer** and **Shifts** tabs. Prepopulate business name = "SOI Threading Salon", address = "180 Hamburg Turnpk, Wayne, NJ 07470", phone = "551-301-3894".
+- **Reports** — new route `/reports`: filters (hourly / half-day / day / custom / week / month / year / worker / payment method / item type / customer / discount-only); KPIs (gross, discounts, net, cash/card/zelle totals, service/gift-card/membership totals, sales by worker, sales by category, # customers, AOV); transactions table; CSV export + Print.
+- **Gift Cards** + **Memberships** — small admin list pages to view sold items.
 
-- "SOI" email/Instagram aren't on the public site — I'll leave blank and the admin can fill them in Settings.
-- Hours are inferred from "Today: 10–7" plus typical salon hours; admin should confirm Sunday.
-- If you later need true FK integrity between orders and customers/services, soft-delete handles it; hard-delete on an item referenced by old orders will still succeed because there's no FK today.
+## 7. Receipt + address everywhere
+
+Update `ReceiptDialog.tsx`, dashboard, settings prefill, and any hard-coded copy to:
+
+```
+SOI Threading Salon
+180 Hamburg Turnpk, Wayne, NJ 07470
+551-301-3894
+```
+
+## 8. Responsive
+
+- POS: lg = two-column sticky right cart; md/sm = left panel full-width with bottom-sheet cart (sticky bar with total + "View cart / Charge").
+- Admin: sidebar collapses (already does); tables → stacked cards under md; all touch targets ≥ 44px, primary actions ≥ 48px.
+
+## 9. `/soi` admin route + credentials
+
+You asked for a private `/soi` route with username `SOI` / password `Soi@wayne2026`.
+
+> ⚠️ Important caveat before I build this: the project already uses Lovable Cloud auth (Supabase) with role-based access (`super_admin`, `admin`, …). A second, hard-coded username/password gate is strictly **less secure** than the existing auth and the password would have to live in the client bundle (anyone viewing source can read it). 
+>
+> **My recommendation:** make `/soi` an alias route that simply redirects to `/login` and, after sign-in, to `/dashboard`, AND create a real admin user with email `soi@…` (you pick) and password `Soi@wayne2026` in the auth system. This gives you the same "secret URL" feel with real security.
+>
+> If you'd rather I implement the literal hard-coded `SOI` / `Soi@wayne2026` gate in addition to real auth, say "use hard-coded gate" and I will, with the security caveat documented in code.
+
+I'll default to the recommended approach unless you say otherwise.
+
+## 10. Files touched (high-level)
+
+- New migration (services reseed + new tables + RPC + settings columns).
+- `src/lib/cashDrawer.ts` (new)
+- `src/lib/pos.functions.ts` (new — checkout server fn that creates order+items+payment+customer+drawer status atomically)
+- `src/routes/_authenticated/-pos/PosClient.tsx` (rewrite to one-screen + tabs + cash drawer)
+- `src/routes/_authenticated/-pos/ReceiptDialog.tsx` (address + payment method)
+- `src/routes/_authenticated/services.tsx` (variable price, reset menu button)
+- `src/routes/_authenticated/settings.tsx` (Cash Drawer + Shifts tabs, business prefill)
+- `src/routes/_authenticated/reports.tsx` (new)
+- `src/routes/_authenticated/gift-cards.tsx`, `memberships.tsx` (new admin lists)
+- `src/routes/soi.tsx` (new alias redirect)
+- `src/components/AppSidebar.tsx` (add Reports / Gift Cards / Memberships nav)
+
+## Open questions before I start
+
+1. **`/soi` gate** — go with my recommended redirect + real admin user, or hard-code the credentials as you wrote?
+2. **Membership types** — you didn't list specific membership tiers/prices. OK to start with free-form (admin enters type + price per sale) and add presets later?
+3. **Existing service data** — confirm OK to **wipe** the current `services` table and reseed from the menu (existing past orders keep their snapshot in `order_items.service_name` + `unit_price`, so reports stay intact).
+
+Once you answer these I'll execute the migration and ship the code.
