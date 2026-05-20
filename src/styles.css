@@ -176,11 +176,13 @@
 .receipt-58mm .receipt-sep { letter-spacing: 0; }
 .receipt-58mm .receipt-footer { font-size: 10pt; font-style: italic; }
 
+/* ===== Receipt print (58mm thermal) — only when body has .printing-receipt ===== */
 @media print {
-  @page { size: 58mm auto; margin: 2mm; }
-  body * { visibility: hidden !important; }
-  #receipt-print, #receipt-print * { visibility: visible !important; }
-  #receipt-print {
+  body.printing-receipt { background: #fff !important; }
+  body.printing-receipt * { visibility: hidden !important; }
+  body.printing-receipt #receipt-print,
+  body.printing-receipt #receipt-print * { visibility: visible !important; }
+  body.printing-receipt #receipt-print {
     position: absolute;
     top: 0; left: 0;
     width: 58mm;
@@ -190,3 +192,67 @@
     color: #000 !important;
   }
 }
+@page :first { /* placeholder so the rule above wins specificity for receipt */ }
+
+/* ===== Report / page print (default) — large, well-aligned, printer friendly ===== */
+@media print {
+  @page { size: Letter; margin: 14mm; }
+  html, body {
+    background: #fff !important;
+    color: #000 !important;
+    font-family: "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 12pt !important;
+    line-height: 1.4 !important;
+  }
+  .no-print, .print\:hidden { display: none !important; }
+  .print-only { display: block !important; }
+
+  .print-doc { padding: 0 !important; max-width: none !important; }
+  .print-doc h1 { font-size: 20pt !important; margin: 0 0 4pt 0 !important; }
+  .print-doc h2 { font-size: 14pt !important; margin: 10pt 0 4pt !important; }
+  .print-doc .card,
+  .print-doc [class*="shadow"] {
+    box-shadow: none !important;
+    border: 1px solid #bbb !important;
+    background: #fff !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .print-doc table { width: 100%; border-collapse: collapse; font-size: 11pt; }
+  .print-doc thead { display: table-header-group; }
+  .print-doc th, .print-doc td {
+    padding: 6pt 8pt !important;
+    border-bottom: 1px solid #ccc !important;
+    color: #000 !important;
+  }
+  .print-doc th {
+    background: #f1f1f1 !important;
+    text-align: left;
+    font-size: 10pt !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #000 !important;
+  }
+  .print-doc tr { page-break-inside: avoid; }
+  .print-doc .text-gold { color: #8a6d1a !important; font-weight: 600 !important; }
+  .print-doc .text-muted-foreground { color: #333 !important; }
+  .print-doc .kpi-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8pt !important;
+  }
+  .print-doc .kpi {
+    border: 1px solid #bbb;
+    padding: 8pt 10pt;
+    page-break-inside: avoid;
+  }
+  .print-doc .kpi-label {
+    font-size: 9pt !important;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #444 !important;
+    margin: 0 0 2pt !important;
+  }
+  .print-doc .kpi-value { font-size: 16pt !important; font-weight: 600 !important; margin: 0 !important; }
+}
+.print-only { display: none; }
