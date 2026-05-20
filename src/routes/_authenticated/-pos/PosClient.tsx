@@ -530,8 +530,9 @@ export function PosClient() {
           <div className="flex-1 overflow-auto p-3">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {visibleServices.map((s) => (
-                <button key={s.id} onClick={() => addService(s)}
-                  className="group flex h-28 flex-col justify-between rounded-xl border-2 border-border bg-card p-3.5 text-left shadow-soft transition active:scale-95 hover:-translate-y-0.5 hover:border-gold hover:shadow-lift">
+                <button key={s.id} type="button" onClick={() => addService(s)}
+                  aria-label={`Add ${s.name}, ${s.price_label ?? (s.starts_at ? `${fmt(s.price)} and up` : fmt(s.price))}`}
+                  className={`group flex h-28 flex-col justify-between rounded-xl border-2 border-border bg-card p-3.5 text-left shadow-soft transition active:scale-95 hover:-translate-y-0.5 hover:border-gold hover:shadow-lift ${FOCUS_RING}`}>
                   <span className="text-base font-semibold leading-tight text-foreground line-clamp-2">{s.name}</span>
                   <span className="text-lg font-bold text-gold">
                     {s.price_label ?? (s.starts_at ? `${fmt(s.price)} & up` : fmt(s.price))}
