@@ -823,14 +823,17 @@ function CartPanel({
                 </div>
                 <div className="mt-2 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <Button size="icon" variant="outline" className="h-9 w-9"
-                      onClick={() => updateQty(i.uid, -1)}><Minus className="h-4 w-4" /></Button>
-                    <span className="w-8 text-center text-lg font-semibold">{i.quantity}</span>
-                    <Button size="icon" variant="outline" className="h-9 w-9"
-                      onClick={() => updateQty(i.uid, 1)}><Plus className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="outline" className="h-11 w-11"
+                      aria-label={`Decrease quantity of ${i.service_name}`}
+                      onClick={() => updateQty(i.uid, -1)}><Minus className="h-4 w-4" aria-hidden="true" /></Button>
+                    <span className="w-8 text-center text-lg font-semibold" aria-label={`Quantity ${i.quantity}`}>{i.quantity}</span>
+                    <Button size="icon" variant="outline" className="h-11 w-11"
+                      aria-label={`Increase quantity of ${i.service_name}`}
+                      onClick={() => updateQty(i.uid, 1)}><Plus className="h-4 w-4" aria-hidden="true" /></Button>
                   </div>
-                  <button onClick={() => removeItem(i.uid)}
-                    className="p-2 text-muted-foreground hover:text-destructive"><Trash2 className="h-5 w-5" /></button>
+                  <button type="button" onClick={() => removeItem(i.uid)}
+                    aria-label={`Remove ${i.service_name} from cart`}
+                    className={`p-2 text-muted-foreground hover:text-destructive ${FOCUS_RING} rounded-md`}><Trash2 className="h-5 w-5" aria-hidden="true" /></button>
                 </div>
               </li>
             ))}
