@@ -435,8 +435,9 @@ export function PosClient() {
           </div>
         </div>
 
-        {/* RIGHT PANEL — cart OR checkout */}
-        <aside className="flex w-[420px] flex-none flex-col border-l border-border bg-card">
+        {/* RIGHT PANEL — cart OR checkout (desktop/tablet large) */}
+        <aside className="hidden w-[420px] flex-none flex-col border-l border-border bg-card md:flex">
+
           {mode === "cart" ? (
             <CartPanel
               cart={cart} customer={customer}
