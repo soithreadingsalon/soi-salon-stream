@@ -1,5 +1,7 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { fmtDate, fmtDateTime } from "@/lib/datetime";
+import { downloadExcelReport, type ReportData } from "@/lib/reportExport";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -461,6 +463,7 @@ function ShiftsTab() {
   const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
   const [from, setFrom] = useState(weekAgo);
   const [to, setTo] = useState(today);
+  const [workerFilter, setWorkerFilter] = useState<string>("all");
 
   const { data: shifts = [] } = useQuery({
     queryKey: ["worker_shifts_admin", from, to],
@@ -470,8 +473,8 @@ function ShiftsTab() {
         .select("*")
         .gte("shift_date", from)
         .lte("shift_date", to)
-        .order("clock_in_at", { ascending: false })
-        .limit(500);
+        .order("clock_in_at", { ascending: true })
+        .limit(1000);
       if (error) throw error;
       return data ?? [];
     },
@@ -497,17 +500,89 @@ function ShiftsTab() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const totalHours = (shifts as any[])
+  const allShifts = shifts as any[];
+  const workerOptions = Array.from(
+    new Map(allShifts.map((s) => [s.worker_id, s.worker_name ?? "—"])).entries(),
+  ).sort(([, a], [, b]) => String(a).localeCompare(String(b)));
+
+  const filtered = workerFilter === "all"
+    ? allShifts
+    : allShifts.filter((s) => s.worker_id === workerFilter);
+
+  // Group by worker → date
+  type Group = { workerId: string; workerName: string; date: string; rows: any[]; hours: number };
+  const groupsMap = new Map<string, Group>();
+  for (const s of filtered) {
+    const key = `${s.worker_id}__${s.shift_date}`;
+    if (!groupsMap.has(key)) {
+      groupsMap.set(key, {
+        workerId: s.worker_id,
+        workerName: s.worker_name ?? "—",
+        date: s.shift_date,
+        rows: [],
+        hours: 0,
+      });
+    }
+    const g = groupsMap.get(key)!;
+    g.rows.push(s);
+    if (s.total_hours) g.hours += Number(s.total_hours);
+  }
+  const groups = Array.from(groupsMap.values()).sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return a.workerName.localeCompare(b.workerName);
+  });
+
+  const totalHours = filtered
     .filter((s) => s.total_hours)
     .reduce((sum, s) => sum + Number(s.total_hours), 0);
 
+  // Per-worker grand totals for the range
+  const perWorker = new Map<string, { name: string; hours: number; sessions: number }>();
+  for (const s of filtered) {
+    const cur = perWorker.get(s.worker_id) ?? { name: s.worker_name ?? "—", hours: 0, sessions: 0 };
+    cur.sessions += 1;
+    if (s.total_hours) cur.hours += Number(s.total_hours);
+    perWorker.set(s.worker_id, cur);
+  }
+
+  const handleExportExcel = () => {
+    const data: ReportData = {
+      title: "Worker Shifts Report",
+      fromDate: from,
+      toDate: to,
+      generatedAt: fmtDateTime(new Date()),
+      kpis: [
+        ["Total shifts (sessions)", filtered.length],
+        ["Total hours", Number(totalHours.toFixed(2))],
+        ["Workers", perWorker.size],
+      ],
+      orders: filtered.map((s) => ({
+        Date: s.shift_date,
+        Worker: s.worker_name ?? "—",
+        "Clock in": fmtDateTime(s.clock_in_at),
+        "Clock out": s.clock_out_at ? fmtDateTime(s.clock_out_at) : "—",
+        Hours: s.total_hours ? Number(Number(s.total_hours).toFixed(2)) : 0,
+        Status: s.status,
+        Adjusted: s.is_adjusted ? "Yes" : "No",
+        Notes: s.admin_notes ?? "",
+      })),
+      byMethod: Array.from(perWorker.entries()).map(([, v]) => ({
+        Worker: v.name,
+        Sessions: v.sessions,
+        "Total hours": Number(v.hours.toFixed(2)),
+      })),
+      topServices: [],
+    };
+    downloadExcelReport(data, `soi-shifts-${from}-to-${to}.xlsx`);
+  };
+
   return (
     <Card className="border-border/60 shadow-soft">
-      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between print:hidden">
         <div>
           <h2 className="font-display text-xl">Worker shifts</h2>
           <p className="text-sm text-muted-foreground">
-            {(shifts as any[]).length} shift(s) · {totalHours.toFixed(2)}h total
+            {filtered.length} session(s) · {totalHours.toFixed(2)}h total · {perWorker.size} worker(s)
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -519,46 +594,106 @@ function ShiftsTab() {
             <Label className="text-xs">To</Label>
             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 w-40" />
           </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Worker</Label>
+            <select
+              value={workerFilter}
+              onChange={(e) => setWorkerFilter(e.target.value)}
+              className="h-9 w-44 rounded-md border border-border bg-background px-2 text-sm"
+            >
+              <option value="all">All workers</option>
+              {workerOptions.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleExportExcel}>Export Excel</Button>
+          <Button variant="outline" size="sm" onClick={() => window.print()}>Print</Button>
         </div>
       </CardHeader>
-      <CardContent className="p-0">
+
+      <CardContent className="p-0 print-doc">
+        <div className="hidden print:block px-4 pt-4">
+          <h1 className="font-display text-2xl">SOI Threading & Salon — Worker Shifts</h1>
+          <p className="text-sm text-muted-foreground">
+            Period: {from} to {to} · Generated: {fmtDateTime(new Date())}
+            {workerFilter !== "all" && ` · Worker: ${workerOptions.find(([id]) => id === workerFilter)?.[1]}`}
+          </p>
+        </div>
+
+        {/* Per-worker totals summary */}
+        {perWorker.size > 0 && (
+          <div className="border-b border-border p-4">
+            <h3 className="mb-2 font-semibold">Totals by worker</h3>
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="p-2 text-left">Worker</th>
+                  <th className="p-2 text-right">Sessions</th>
+                  <th className="p-2 text-right">Total hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from(perWorker.entries()).map(([id, v]) => (
+                  <tr key={id} className="border-t border-border">
+                    <td className="p-2 font-medium">{v.name}</td>
+                    <td className="p-2 text-right tabular-nums">{v.sessions}</td>
+                    <td className="p-2 text-right font-semibold tabular-nums">{v.hours.toFixed(2)}h</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Grouped sessions */}
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
-              <th className="p-3 text-left">Date</th>
-              <th className="p-3 text-left">Worker</th>
+              <th className="p-3 text-left">Date / Worker</th>
               <th className="p-3 text-left">Clock in</th>
               <th className="p-3 text-left">Clock out</th>
               <th className="p-3 text-right">Hours</th>
               <th className="p-3 text-center">Status</th>
-              <th className="p-3 text-right">Actions</th>
+              <th className="p-3 text-right print:hidden">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {(shifts as any[]).map((s) => (
-              <tr key={s.id} className="border-t border-border">
-                <td className="p-3">{s.shift_date}</td>
-                <td className="p-3 font-medium">{s.worker_name ?? "—"}</td>
-                <td className="p-3 text-muted-foreground">{new Date(s.clock_in_at).toLocaleTimeString()}</td>
-                <td className="p-3 text-muted-foreground">
-                  {s.clock_out_at ? new Date(s.clock_out_at).toLocaleTimeString() : "—"}
-                </td>
-                <td className="p-3 text-right font-semibold">{s.total_hours ? Number(s.total_hours).toFixed(2) : "—"}</td>
-                <td className="p-3 text-center">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                    s.status === "open" ? "bg-gold/15 text-foreground" : "bg-muted text-muted-foreground"
-                  }`}>{s.status}</span>
-                  {s.is_adjusted && <span className="ml-1 text-[10px] text-amber-600">(adj)</span>}
-                </td>
-                <td className="p-3 text-right">
-                  {s.status === "open" && (
-                    <Button size="sm" variant="outline" onClick={() => closeOpen.mutate(s)}>Close shift</Button>
-                  )}
-                </td>
-              </tr>
+            {groups.map((g) => (
+              <Fragment key={`${g.workerId}-${g.date}`}>
+                <tr className="border-t-2 border-gold/40 bg-gold/5">
+                  <td colSpan={6} className="p-2 px-3 text-xs font-semibold uppercase tracking-wider">
+                    {fmtDate(g.date)} · {g.workerName}
+                    <span className="ml-2 font-normal text-muted-foreground">
+                      ({g.rows.length} session{g.rows.length === 1 ? "" : "s"} · {g.hours.toFixed(2)}h)
+                    </span>
+                  </td>
+                </tr>
+                {g.rows.map((s) => (
+                  <tr key={s.id} className="border-t border-border">
+                    <td className="p-3 pl-6 text-muted-foreground">↳ session</td>
+                    <td className="p-3 tabular-nums">{fmtDateTime(s.clock_in_at)}</td>
+                    <td className="p-3 tabular-nums">{s.clock_out_at ? fmtDateTime(s.clock_out_at) : "—"}</td>
+                    <td className="p-3 text-right font-semibold tabular-nums">
+                      {s.total_hours ? Number(s.total_hours).toFixed(2) : "—"}
+                    </td>
+                    <td className="p-3 text-center">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        s.status === "open" ? "bg-gold/15 text-foreground" : "bg-muted text-muted-foreground"
+                      }`}>{s.status}</span>
+                      {s.is_adjusted && <span className="ml-1 text-[10px] text-amber-600">(adj)</span>}
+                    </td>
+                    <td className="p-3 text-right print:hidden">
+                      {s.status === "open" && (
+                        <Button size="sm" variant="outline" onClick={() => closeOpen.mutate(s)}>Close shift</Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </Fragment>
             ))}
-            {(shifts as any[]).length === 0 && (
-              <tr><td colSpan={7} className="p-12 text-center text-sm text-muted-foreground">No shifts in this range</td></tr>
+            {groups.length === 0 && (
+              <tr><td colSpan={6} className="p-12 text-center text-sm text-muted-foreground">No shifts in this range</td></tr>
             )}
           </tbody>
         </table>
