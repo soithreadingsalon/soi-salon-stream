@@ -446,10 +446,14 @@ export function PosClient() {
     completeSale.mutate(m);
   };
 
+  // Keep ref in sync for keyboard handler
+  chargeRef.current = { charge: chargeWith, pending: completeSale.isPending };
 
   /* ---------------- LAYOUT ---------------- */
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden bg-background">
+    <div className="flex h-[calc(100dvh-3.5rem)] flex-col overflow-hidden bg-background">
+      {/* Screen-reader live region for cart updates */}
+      <div role="status" aria-live="polite" className="sr-only">{liveMsg}</div>
       {/* TOP BAR */}
       <div className="flex flex-none items-center gap-2 border-b border-border bg-card px-3 py-2">
         <div className="min-w-0 flex-1">
