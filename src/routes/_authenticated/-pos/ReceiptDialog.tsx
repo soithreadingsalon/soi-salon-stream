@@ -137,7 +137,12 @@ export function ReceiptDialog({
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-row">
-          <Button variant="outline" onClick={() => window.print()}>
+          <Button variant="outline" onClick={() => {
+            document.body.classList.add("printing-receipt");
+            const cleanup = () => { document.body.classList.remove("printing-receipt"); window.removeEventListener("afterprint", cleanup); };
+            window.addEventListener("afterprint", cleanup);
+            window.print();
+          }}>
             <Printer className="mr-2 h-4 w-4" /> Print
           </Button>
           <Button onClick={onClose} className="bg-primary text-primary-foreground hover:bg-primary/90">

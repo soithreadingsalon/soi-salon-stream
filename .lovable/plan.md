@@ -1,49 +1,57 @@
-## Goal
+## Plan
 
-Make the right-hand POS panel a true one-step checkout. Remove the dedicated "Checkout" screen. Discount and tip live directly in the cart panel. The big **Charge** button opens a small payment-method popup (Cash / Card / Zelle) — clicking a method completes the sale immediately.
+### 1. Wipe all test data (migration)
 
-## Current flow (what to remove)
+Single migration that `TRUNCATE ... RESTART IDENTITY CASCADE` on transactional tables only — preserves services, categories, business settings, profiles, roles, and worker pins.
 
-```text
-Cart panel  ──[Charge]──▶  Checkout panel  ──[Complete sale]──▶  Done
-            (step 1)        (discount, tip,
-                             method, cash tendered)
-```
+Tables wiped:
+- `orders`, `order_items`, `payments` (resets `order_number`)
+- `gift_cards`, `memberships`
+- `loyalty_accounts`, `loyalty_transactions`
+- `customers`, `customers_deleted`
+- `worker_shifts`
+- `audit_logs`
 
-## New flow
+Current data that will be deleted: 2 orders, 5 line items, 2 payments, 1 customer, 1 membership, 1 shift, 1 loyalty account.
 
-```text
-Cart panel (one screen)                ──[Charge $X]──▶  Payment popup  ──▶  Done
-  • items + qty                                          Cash / Card /
-  • Discount $  (inline)                                 Zelle
-  • Tip (% chips + custom)                               (click = complete)
-  • Loyalty quick actions (free eyebrow / redeem pts)
-  • Subtotal / Discount / Tax / Tip / Total
-```
+### 2. Excel export on Reports (admin)
 
-## Changes in `src/routes/_authenticated/-pos/PosClient.tsx`
+`src/routes/_authenticated/reports.tsx`:
+- Add `bun add xlsx`.
+- New **Export Excel** button next to CSV/Print.
+- Workbook with sheets: **Summary** (KPIs), **Orders**, **Payments by method**, **Top services**.
+- Currency number format on $ columns, bold headers, sensible column widths.
+- Filename `soi-report-{from}-to-{to}.xlsx`.
 
-1. **Delete `CheckoutPanel`** and remove the `mode: "cart" | "checkout"` state. The right panel (desktop and mobile sheet) always renders the cart.
-2. **Expand `CartPanel`** to include, between the items list and the totals:
-   - Loyalty quick actions block (moved verbatim from CheckoutPanel: free eyebrow, redeem points).
-   - **Discount ($)** input.
-   - **Tip** row: existing preset % chips + custom $ + "No tip".
-   - Totals already show Subtotal / Discount / Tax / Total — add a Tip row when `tip > 0` (already wired in the checkout totals block).
-3. **`Charge` button** stays at the bottom of the cart, label `Charge {fmt(grandTotal)}`, disabled when cart is empty. Clicking it opens a new **`PaymentMethodDialog`** (shadcn `Dialog`) instead of switching modes.
-4. **New `PaymentMethodDialog`** — small, 3 large buttons (Cash / Card / Zelle, reusing the existing `PayBtn` style and `Banknote` / `CreditCard` / `Wallet` icons). Header shows `Total {fmt(grandTotal)}`. Clicking a button:
-   - Sets `method` and immediately calls `completeSale()` (no cash-tendered / change screen, no confirm step).
-   - While the mutation is pending, all three buttons disable and show a small spinner on the clicked one.
-   - On success: close dialog, clear cart, reset discount/tip/loyalty state, show success toast + receipt (existing behavior).
-5. **Cash drawer** continues to fire from `completeSale` when `method === "cash"` (unchanged — uses `openCashDrawer(settings)`).
-6. **Remove**: `mode` state, `setMode` calls, the `<CheckoutPanel ... />` JSX in both desktop right column and the mobile `<Sheet>`, the `ArrowLeft` back-button, and the cash-tendered / change-due UI (no longer part of the flow).
-7. **Keep** the existing variable-price / gift card / membership add-to-cart dialogs — they are unrelated to this checkout simplification.
+### 3. Per-worker self-serve report
 
-## Files touched
+Rebuild `src/routes/_authenticated/my-sales.tsx` so every signed-in worker can pull their own numbers:
+- Date range with presets (Today / Last 7d / Last 30d / Custom).
+- KPIs filtered to `cashier_id = me`: orders, gross, tips, average ticket, hours worked (from `worker_shifts`), by-method, top services.
+- **Download Excel** and **Download CSV** buttons (same sheet structure, scoped to self).
+- Print button using the same shared print stylesheet as admin Reports.
 
-- `src/routes/_authenticated/-pos/PosClient.tsx` — only file edited.
+Uses existing RLS — no schema or policy changes needed.
 
-## Out of scope
+### 4. Print layout polish (admin Reports + My Sales)
 
-- No DB or server-function changes. `completeSale` keeps its current signature and behavior.
-- No changes to receipt, reports, services, settings, or the mobile bottom-bar trigger (it still opens the cart sheet — which now contains the inline discount/tip and the same Charge button).
-- Cash-tendered / change-due is dropped from the UI per the one-step requirement. If you want it back as an optional drawer-side input, say so and I'll add it as a collapsible "Cash received" inside the Cash button row.
+The current print output uses screen sizes and relies on `print:hidden`/`print:p-0` only. Rework:
+
+- Add a dedicated `@media print` block in `src/styles.css`:
+  - Base font bumped to ~12pt; table cells 11pt; KPI labels 9pt; H1 18pt.
+  - `@page { size: auto; margin: 12mm; }` for paper, plus a narrow variant we toggle for 80mm receipt printer.
+  - Force black-on-white, remove shadows/borders we don't need, keep gold accent on totals.
+  - `table { width: 100%; border-collapse: collapse; } th, td { padding: 6px 8px; border-bottom: 1px solid #ccc; }`.
+  - `thead { display: table-header-group; }` so headers repeat across pages; `tr, .kpi { page-break-inside: avoid; }`.
+  - Hide filter card, sidebar, nav, buttons via existing `print:hidden` + new `.no-print` utility.
+- Add a small print header injected only when printing: business name + address + phone (from `business_settings`) + report title + date range + generated-at timestamp + cashier name (for My Sales).
+- Honor the existing cash-drawer / receipt printer width setting (`business_settings.cash_drawer_*`) only as a toggle: a **Print (Receipt 80mm)** secondary option that sets `@page { size: 80mm auto }` via a body class — main Print stays full-page Letter. (Reports are too wide for 58mm, so we don't expose that.)
+- Right-align numeric columns; ensure totals row is bold; ensure no horizontal overflow at print width.
+
+### Out of scope
+- No POS checkout changes.
+- No new tables, RLS, or server functions.
+- No changes to receipt printing in `ReceiptDialog`.
+
+### Confirmation needed
+Confirm I should proceed with the data wipe in step 1 — it's irreversible.
