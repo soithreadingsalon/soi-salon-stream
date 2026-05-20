@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, Minus, Trash2, Search, UserPlus, X, Star, Gift,
   Sparkles, Flame, Flower, Scissors, Palette, User, CreditCard,
-  Banknote, Wallet, IdCard, ShoppingBag,
+  Banknote, Wallet, IdCard, ShoppingBag, Keyboard,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
@@ -20,7 +20,18 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ReceiptDialog } from "./ReceiptDialog";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import { openCashDrawer } from "@/lib/cashDrawer";
+
+const FOCUS_RING =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
+function isTypingTarget(el: EventTarget | null) {
+  const t = el as HTMLElement | null;
+  if (!t) return false;
+  const tag = t.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t.isContentEditable;
+}
 
 type Service = {
   id: string; name: string; price: number; starts_at: boolean;
