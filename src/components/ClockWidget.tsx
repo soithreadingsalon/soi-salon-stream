@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Clock, LogIn, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import { fmtTimeShort, fmtWeekdayDateTime } from "@/lib/datetime";
 
 function fmtElapsed(startIso: string) {
   const ms = Date.now() - new Date(startIso).getTime();
@@ -17,7 +18,13 @@ function fmtElapsed(startIso: string) {
 export function ClockWidget() {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [tick, setTick] = useState(0);
+  const [now, setNow] = useState(() => new Date());
+
+  // Live ticking clock — always running so the worker sees current date/time on login
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const { data: openShift } = useQuery({
     queryKey: ["worker_shifts_open", user?.id],
@@ -36,12 +43,6 @@ export function ClockWidget() {
     },
   });
 
-  useEffect(() => {
-    if (!openShift) return;
-    const t = setInterval(() => setTick((n) => n + 1), 30_000);
-    return () => clearInterval(t);
-  }, [openShift]);
-
   const clockIn = useMutation({
     mutationFn: async () => {
       const fullName =
@@ -53,7 +54,7 @@ export function ClockWidget() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Clocked in");
+      toast.success(`Clocked in at ${fmtTimeShort(new Date())}`);
       qc.invalidateQueries({ queryKey: ["worker_shifts_open"] });
       qc.invalidateQueries({ queryKey: ["worker_shifts_admin"] });
     },
@@ -63,13 +64,13 @@ export function ClockWidget() {
   const clockOut = useMutation({
     mutationFn: async () => {
       if (!openShift) return;
-      const now = new Date();
+      const stop = new Date();
       const hours =
-        (now.getTime() - new Date(openShift.clock_in_at).getTime()) / 3_600_000;
+        (stop.getTime() - new Date(openShift.clock_in_at).getTime()) / 3_600_000;
       const { error } = await supabase
         .from("worker_shifts")
         .update({
-          clock_out_at: now.toISOString(),
+          clock_out_at: stop.toISOString(),
           total_hours: Number(hours.toFixed(2)),
           status: "closed",
         } as any)
@@ -77,7 +78,7 @@ export function ClockWidget() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Clocked out");
+      toast.success(`Clocked out at ${fmtTimeShort(new Date())}`);
       qc.invalidateQueries({ queryKey: ["worker_shifts_open"] });
       qc.invalidateQueries({ queryKey: ["worker_shifts_admin"] });
     },
@@ -85,35 +86,44 @@ export function ClockWidget() {
   });
 
   if (!user) return null;
-  void tick;
 
-  if (openShift) {
-    return (
-      <div className="flex items-center gap-2">
-        <div className="hidden items-center gap-1.5 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-foreground sm:flex">
-          <Clock className="h-3.5 w-3.5 text-gold" />
-          <span>On shift · {fmtElapsed(openShift.clock_in_at)}</span>
-        </div>
+  return (
+    <div className="flex items-center gap-2">
+      {/* Always-on live clock */}
+      <div
+        className="hidden items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1 text-xs font-medium text-foreground md:flex"
+        title="Current date & time"
+      >
+        <Clock className="h-3.5 w-3.5 text-gold" />
+        <span className="tabular-nums">{fmtWeekdayDateTime(now)}</span>
+      </div>
+
+      {openShift ? (
+        <>
+          <div className="hidden items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-xs font-medium text-foreground sm:flex">
+            <span>
+              On shift since {fmtTimeShort(openShift.clock_in_at)} · {fmtElapsed(openShift.clock_in_at)}
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => clockOut.mutate()}
+            disabled={clockOut.isPending}
+          >
+            <LogOut className="mr-1 h-3.5 w-3.5" /> Clock out
+          </Button>
+        </>
+      ) : (
         <Button
           size="sm"
           variant="outline"
-          onClick={() => clockOut.mutate()}
-          disabled={clockOut.isPending}
+          onClick={() => clockIn.mutate()}
+          disabled={clockIn.isPending}
         >
-          <LogOut className="mr-1 h-3.5 w-3.5" /> Clock out
+          <LogIn className="mr-1 h-3.5 w-3.5" /> Clock in
         </Button>
-      </div>
-    );
-  }
-
-  return (
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={() => clockIn.mutate()}
-      disabled={clockIn.isPending}
-    >
-      <LogIn className="mr-1 h-3.5 w-3.5" /> Clock in
-    </Button>
+      )}
+    </div>
   );
 }
