@@ -142,23 +142,54 @@ export function PosClient() {
     return services.find((s) => s.category_id === cat?.id && s.name.toLowerCase() === "eyebrow");
   }, [services, cats]);
 
-  const addService = (svc: Service, opts?: { free?: boolean }) => {
+  const addService = (svc: Service, opts?: { free?: boolean; priceOverride?: number }) => {
     if (opts?.free) {
       setCart((p) => [...p, {
         uid: crypto.randomUUID(), service_id: svc.id,
         service_name: `${svc.name} (Free reward)`,
         unit_price: 0, quantity: 1, taxable: false, is_free: true,
+        item_type: "service",
       }]);
       return;
     }
+    if (svc.is_variable_price && opts?.priceOverride === undefined) {
+      setVarPriceSvc(svc);
+      return;
+    }
+    const price = opts?.priceOverride ?? Number(svc.price);
     setCart((prev) => {
-      const ex = prev.find((i) => i.service_id === svc.id && !i.is_free);
+      // Variable-price items always added as a fresh line so each can be priced individually
+      if (svc.is_variable_price) {
+        return [...prev, {
+          uid: crypto.randomUUID(), service_id: svc.id, service_name: svc.name,
+          unit_price: price, quantity: 1, taxable: svc.taxable, item_type: "service",
+        }];
+      }
+      const ex = prev.find((i) => i.service_id === svc.id && !i.is_free && i.item_type !== "gift_card" && i.item_type !== "membership");
       if (ex) return prev.map((i) => i.uid === ex.uid ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, {
         uid: crypto.randomUUID(), service_id: svc.id, service_name: svc.name,
-        unit_price: Number(svc.price), quantity: 1, taxable: svc.taxable,
+        unit_price: price, quantity: 1, taxable: svc.taxable, item_type: "service",
       }];
     });
+  };
+
+  const addGiftCard = (vals: { amount: number; buyerName?: string; recipientName?: string }) => {
+    setCart((p) => [...p, {
+      uid: crypto.randomUUID(), service_id: null,
+      service_name: `Gift Card${vals.recipientName ? ` — ${vals.recipientName}` : ""}`,
+      unit_price: vals.amount, quantity: 1, taxable: false,
+      item_type: "gift_card", meta: vals,
+    }]);
+  };
+
+  const addMembership = (vals: { type: string; price: number; expirationDate?: string }) => {
+    setCart((p) => [...p, {
+      uid: crypto.randomUUID(), service_id: null,
+      service_name: `Membership — ${vals.type}`,
+      unit_price: vals.price, quantity: 1, taxable: false,
+      item_type: "membership", meta: vals,
+    }]);
   };
 
   const updateQty = (uid: string, delta: number) =>
