@@ -8,6 +8,7 @@ import {
   LogOut,
   History,
   IdCard,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
