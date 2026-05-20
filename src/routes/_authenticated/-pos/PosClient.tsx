@@ -206,11 +206,19 @@ export function PosClient() {
       const { error: iErr } = await supabase.from("order_items").insert(items);
       if (iErr) throw iErr;
 
+      // Fire the cash drawer ONLY for confirmed cash payments
+      let drawerStatus: "not_applicable" | "opened" | "failed" | "disabled" = "not_applicable";
+      if (method === "cash") {
+        drawerStatus = await openCashDrawer(settings as any);
+      }
+
       const { error: pErr } = await supabase.from("payments").insert({
         order_id: order.id,
         method: method === "zelle" ? "other" : method,
+        payment_method: method,
         amount: grandTotal,
         status: "succeeded",
+        cash_drawer_status: drawerStatus,
         created_by: user!.id,
         external_reference: method === "zelle" ? "zelle" : null,
         ...(method === "card"
@@ -218,6 +226,10 @@ export function PosClient() {
           : {}),
       } as any);
       if (pErr) throw pErr;
+
+      if (method === "cash" && drawerStatus === "failed") {
+        toast.warning("Transaction saved — cash drawer did not open. Please open manually.");
+      }
 
       if (customer) {
         await supabase.from("customers").update({
