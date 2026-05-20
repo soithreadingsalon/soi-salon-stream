@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedServicesRouteImport } from './routes/_authenticated/services'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
 import { Route as AuthenticatedMySalesRouteImport } from './routes/_authenticated/my-sales'
 import { Route as AuthenticatedMembershipsRouteImport } from './routes/_authenticated/memberships'
@@ -49,6 +50,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 const AuthenticatedServicesRoute = AuthenticatedServicesRouteImport.update({
   id: '/services',
   path: '/services',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedPosRoute = AuthenticatedPosRouteImport.update({
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/memberships': typeof AuthenticatedMembershipsRoute
   '/my-sales': typeof AuthenticatedMySalesRoute
   '/pos': typeof AuthenticatedPosRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/services': typeof AuthenticatedServicesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/memberships': typeof AuthenticatedMembershipsRoute
   '/my-sales': typeof AuthenticatedMySalesRoute
   '/pos': typeof AuthenticatedPosRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/services': typeof AuthenticatedServicesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/_authenticated/memberships': typeof AuthenticatedMembershipsRoute
   '/_authenticated/my-sales': typeof AuthenticatedMySalesRoute
   '/_authenticated/pos': typeof AuthenticatedPosRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/services': typeof AuthenticatedServicesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/memberships'
     | '/my-sales'
     | '/pos'
+    | '/reports'
     | '/services'
     | '/settings'
     | '/customers/$customerId'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/memberships'
     | '/my-sales'
     | '/pos'
+    | '/reports'
     | '/services'
     | '/settings'
     | '/customers/$customerId'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/_authenticated/memberships'
     | '/_authenticated/my-sales'
     | '/_authenticated/pos'
+    | '/_authenticated/reports'
     | '/_authenticated/services'
     | '/_authenticated/settings'
     | '/_authenticated/customers/$customerId'
@@ -217,6 +229,13 @@ declare module '@tanstack/react-router' {
       path: '/services'
       fullPath: '/services'
       preLoaderRoute: typeof AuthenticatedServicesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/pos': {
@@ -285,6 +304,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedMembershipsRoute: typeof AuthenticatedMembershipsRoute
   AuthenticatedMySalesRoute: typeof AuthenticatedMySalesRoute
   AuthenticatedPosRoute: typeof AuthenticatedPosRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedServicesRoute: typeof AuthenticatedServicesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
 }
@@ -295,6 +315,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedMembershipsRoute: AuthenticatedMembershipsRoute,
   AuthenticatedMySalesRoute: AuthenticatedMySalesRoute,
   AuthenticatedPosRoute: AuthenticatedPosRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedServicesRoute: AuthenticatedServicesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
 }

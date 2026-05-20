@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SoiLogo } from "@/components/SoiLogo";
+import { ClockWidget } from "@/components/ClockWidget";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthLayout,
@@ -32,8 +33,11 @@ function AuthLayout() {
                 <SoiLogo />
               </div>
             </div>
-            <div className="hidden text-xs uppercase tracking-[0.18em] text-muted-foreground md:block">
-              180 Hamburg Turnpk · Wayne, NJ · 551-301-3894
+            <div className="flex items-center gap-3">
+              <div className="hidden text-xs uppercase tracking-[0.18em] text-muted-foreground lg:block">
+                180 Hamburg Turnpk · Wayne, NJ · 551-301-3894
+              </div>
+              <ClockWidget />
             </div>
           </header>
           <main className="flex-1 overflow-auto">

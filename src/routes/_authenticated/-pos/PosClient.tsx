@@ -7,13 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import {
   Plus, Minus, Trash2, Search, UserPlus, X, Star, Gift,
   Sparkles, Flame, Flower, Scissors, Palette, User, CreditCard,
-  Banknote, Wallet, ArrowLeft,
+  Banknote, Wallet, ArrowLeft, IdCard, ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ReceiptDialog } from "./ReceiptDialog";
@@ -22,6 +25,7 @@ import { openCashDrawer } from "@/lib/cashDrawer";
 type Service = {
   id: string; name: string; price: number; starts_at: boolean;
   taxable: boolean; category_id: string;
+  is_variable_price?: boolean; price_label?: string | null;
 };
 type Category = { id: string; name: string; slug: string; sort_order: number; icon: string | null };
 type Customer = {
@@ -33,8 +37,10 @@ type Loyalty = {
   eyebrow_threading_count: number; free_eyebrow_credits: number;
 };
 type CartItem = {
-  uid: string; service_id: string; service_name: string;
+  uid: string; service_id: string | null; service_name: string;
   unit_price: number; quantity: number; taxable: boolean; is_free?: boolean;
+  item_type?: "service" | "gift_card" | "membership";
+  meta?: any;
 };
 type PayMethod = "cash" | "card" | "zelle";
 
@@ -68,6 +74,10 @@ export function PosClient() {
   const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
   const [custDialog, setCustDialog] = useState(false);
   const [newCustOpen, setNewCustOpen] = useState(false);
+  const [varPriceSvc, setVarPriceSvc] = useState<Service | null>(null);
+  const [giftOpen, setGiftOpen] = useState(false);
+  const [memOpen, setMemOpen] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
 
   const { data: cats = [] } = useQuery<Category[]>({
     queryKey: ["service_categories"],
@@ -82,7 +92,7 @@ export function PosClient() {
     queryKey: ["services"],
     queryFn: async () => {
       const { data, error } = await supabase.from("services")
-        .select("id,name,price,starts_at,taxable,category_id")
+        .select("id,name,price,starts_at,taxable,category_id,is_variable_price,price_label")
         .eq("active", true).order("sort_order");
       if (error) throw error; return data as Service[];
     },
@@ -132,23 +142,54 @@ export function PosClient() {
     return services.find((s) => s.category_id === cat?.id && s.name.toLowerCase() === "eyebrow");
   }, [services, cats]);
 
-  const addService = (svc: Service, opts?: { free?: boolean }) => {
+  const addService = (svc: Service, opts?: { free?: boolean; priceOverride?: number }) => {
     if (opts?.free) {
       setCart((p) => [...p, {
         uid: crypto.randomUUID(), service_id: svc.id,
         service_name: `${svc.name} (Free reward)`,
         unit_price: 0, quantity: 1, taxable: false, is_free: true,
+        item_type: "service",
       }]);
       return;
     }
+    if (svc.is_variable_price && opts?.priceOverride === undefined) {
+      setVarPriceSvc(svc);
+      return;
+    }
+    const price = opts?.priceOverride ?? Number(svc.price);
     setCart((prev) => {
-      const ex = prev.find((i) => i.service_id === svc.id && !i.is_free);
+      // Variable-price items always added as a fresh line so each can be priced individually
+      if (svc.is_variable_price) {
+        return [...prev, {
+          uid: crypto.randomUUID(), service_id: svc.id, service_name: svc.name,
+          unit_price: price, quantity: 1, taxable: svc.taxable, item_type: "service",
+        }];
+      }
+      const ex = prev.find((i) => i.service_id === svc.id && !i.is_free && i.item_type !== "gift_card" && i.item_type !== "membership");
       if (ex) return prev.map((i) => i.uid === ex.uid ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, {
         uid: crypto.randomUUID(), service_id: svc.id, service_name: svc.name,
-        unit_price: Number(svc.price), quantity: 1, taxable: svc.taxable,
+        unit_price: price, quantity: 1, taxable: svc.taxable, item_type: "service",
       }];
     });
+  };
+
+  const addGiftCard = (vals: { amount: number; buyerName?: string; recipientName?: string }) => {
+    setCart((p) => [...p, {
+      uid: crypto.randomUUID(), service_id: null,
+      service_name: `Gift Card${vals.recipientName ? ` — ${vals.recipientName}` : ""}`,
+      unit_price: vals.amount, quantity: 1, taxable: false,
+      item_type: "gift_card", meta: vals,
+    }]);
+  };
+
+  const addMembership = (vals: { type: string; price: number; expirationDate?: string }) => {
+    setCart((p) => [...p, {
+      uid: crypto.randomUUID(), service_id: null,
+      service_name: `Membership — ${vals.type}`,
+      unit_price: vals.price, quantity: 1, taxable: false,
+      item_type: "membership", meta: vals,
+    }]);
   };
 
   const updateQty = (uid: string, delta: number) =>
@@ -201,11 +242,45 @@ export function PosClient() {
       if (error) throw error;
 
       const items = cart.map((i) => ({
-        order_id: order.id, service_id: i.service_id, service_name: i.service_name,
+        order_id: order.id,
+        service_id: i.service_id,
+        service_name: i.service_name,
         unit_price: i.unit_price, quantity: i.quantity, taxable: i.taxable,
+        item_type: i.item_type ?? "service",
       }));
       const { error: iErr } = await supabase.from("order_items").insert(items);
       if (iErr) throw iErr;
+
+      // Persist gift cards / memberships that were sold in this order
+      const giftCardRows = cart.filter((i) => i.item_type === "gift_card").map((i) => ({
+        code: `GC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+        amount: i.unit_price,
+        balance: i.unit_price,
+        buyer_name: i.meta?.buyerName ?? null,
+        recipient_name: i.meta?.recipientName ?? null,
+        status: "active",
+        order_id: order.id,
+        created_by: user!.id,
+      }));
+      if (giftCardRows.length) {
+        const { error: gErr } = await supabase.from("gift_cards").insert(giftCardRows as any);
+        if (gErr) throw gErr;
+      }
+      const membershipRows = cart.filter((i) => i.item_type === "membership").map((i) => ({
+        customer_id: customer?.id ?? null,
+        customer_name: customer?.full_name ?? i.meta?.customerName ?? "Walk-in",
+        membership_type: i.meta?.type ?? "Membership",
+        price: i.unit_price,
+        expiration_date: i.meta?.expirationDate || null,
+        status: "active",
+        order_id: order.id,
+        created_by: user!.id,
+      }));
+      if (membershipRows.length) {
+        const { error: mErr } = await supabase.from("memberships").insert(membershipRows as any);
+        if (mErr) throw mErr;
+      }
+
 
       // Fire the cash drawer ONLY for confirmed cash payments
       let drawerStatus: "not_applicable" | "opened" | "failed" | "disabled" = "not_applicable";
@@ -273,6 +348,7 @@ export function PosClient() {
       setReceiptOrderId(oid);
       setCart([]); setCustomer(null);
       setMode("cart");
+      setMobileCartOpen(false);
       resetCheckoutState();
       qc.invalidateQueries({ queryKey: ["dashboard-today"] });
       qc.invalidateQueries({ queryKey: ["loyalty"] });
@@ -328,6 +404,15 @@ export function PosClient() {
                     </button>
                   );
                 })}
+                <span className="mx-1 h-7 w-px self-center bg-border" />
+                <button onClick={() => setGiftOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20">
+                  <Gift className="h-4 w-4 text-gold" /> Gift card
+                </button>
+                <button onClick={() => setMemOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-gold/60 bg-gold/10 px-4 py-2 text-sm font-medium text-foreground transition hover:bg-gold/20">
+                  <IdCard className="h-4 w-4 text-gold" /> Membership
+                </button>
               </div>
             )}
           </div>
@@ -338,7 +423,7 @@ export function PosClient() {
                   className="group flex h-28 flex-col justify-between rounded-xl border-2 border-border bg-card p-3.5 text-left shadow-soft transition active:scale-95 hover:-translate-y-0.5 hover:border-gold hover:shadow-lift">
                   <span className="text-base font-semibold leading-tight text-foreground line-clamp-2">{s.name}</span>
                   <span className="text-lg font-bold text-gold">
-                    {s.starts_at ? `${fmt(s.price)}+` : fmt(s.price)}
+                    {s.price_label ?? (s.starts_at ? `${fmt(s.price)} & up` : fmt(s.price))}
                   </span>
                 </button>
               ))}
@@ -351,8 +436,9 @@ export function PosClient() {
           </div>
         </div>
 
-        {/* RIGHT PANEL — cart OR checkout */}
-        <aside className="flex w-[420px] flex-none flex-col border-l border-border bg-card">
+        {/* RIGHT PANEL — cart OR checkout (desktop/tablet large) */}
+        <aside className="hidden w-[420px] flex-none flex-col border-l border-border bg-card md:flex">
+
           {mode === "cart" ? (
             <CartPanel
               cart={cart} customer={customer}
@@ -385,6 +471,59 @@ export function PosClient() {
         </aside>
       </div>
 
+      {/* MOBILE / TABLET cart bar */}
+      <div className="flex-none border-t border-border bg-card px-3 py-2 md:hidden">
+        <Button
+          onClick={() => setMobileCartOpen(true)}
+          disabled={cart.length === 0}
+          className="h-14 w-full justify-between bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
+        >
+          <span className="flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5" />
+            {cart.reduce((s, i) => s + i.quantity, 0)} item
+            {cart.reduce((s, i) => s + i.quantity, 0) === 1 ? "" : "s"}
+          </span>
+          <span>{fmt(+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2))}</span>
+        </Button>
+      </div>
+
+      <Sheet open={mobileCartOpen} onOpenChange={setMobileCartOpen}>
+        <SheetContent side="right" className="flex w-full max-w-md flex-col p-0 sm:max-w-md">
+          <SheetHeader className="sr-only"><SheetTitle>Cart</SheetTitle></SheetHeader>
+          <div className="flex h-full flex-col">
+            {mode === "cart" ? (
+              <CartPanel
+                cart={cart} customer={customer}
+                subtotal={subtotal} totalDiscount={totalDiscount} tax={tax}
+                grandTotal={+(Math.max(0, subtotal - totalDiscount) + tax).toFixed(2)}
+                updateQty={updateQty} removeItem={removeItem}
+                onClear={() => setCart([])}
+                onCharge={() => setMode("checkout")}
+              />
+            ) : (
+              <CheckoutPanel
+                subtotal={subtotal}
+                discount={discount} setDiscount={setDiscount}
+                loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
+                pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
+                canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
+                onAddFreeEyebrow={() => eyebrowService && addService(eyebrowService, { free: true })}
+                totalDiscount={totalDiscount} tax={tax} tip={tip}
+                baseForTip={baseForTip} grandTotal={grandTotal}
+                tipPct={tipPct} setTipPct={setTipPct}
+                tipPresets={tipPresets}
+                tipCustom={tipCustom} setTipCustom={setTipCustom}
+                method={method} setMethod={setMethod}
+                tendered={tendered} setTendered={setTendered}
+                pending={completeSale.isPending}
+                onBack={() => { setMode("cart"); resetCheckoutState(); }}
+                onComplete={() => completeSale.mutate()}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <CustomerSearchDialog
         open={custDialog} onOpenChange={setCustDialog}
         onPick={(c) => { setCustomer(c); setCustDialog(false); }}
@@ -395,6 +534,24 @@ export function PosClient() {
         userId={user!.id}
         onCreated={(c) => { setCustomer(c); setNewCustOpen(false); }}
       />
+      <VariablePriceDialog
+        svc={varPriceSvc}
+        onClose={() => setVarPriceSvc(null)}
+        onConfirm={(price) => {
+          if (varPriceSvc) addService(varPriceSvc, { priceOverride: price });
+          setVarPriceSvc(null);
+        }}
+      />
+      <GiftCardDialog
+        open={giftOpen}
+        onOpenChange={setGiftOpen}
+        onAdd={(v) => { addGiftCard(v); setGiftOpen(false); }}
+      />
+      <MembershipDialog
+        open={memOpen}
+        onOpenChange={setMemOpen}
+        onAdd={(v) => { addMembership(v); setMemOpen(false); }}
+      />
       <ReceiptDialog
         orderId={receiptOrderId}
         onClose={() => setReceiptOrderId(null)}
@@ -403,6 +560,130 @@ export function PosClient() {
     </div>
   );
 }
+
+/* ============== VARIABLE PRICE ============== */
+function VariablePriceDialog({
+  svc, onClose, onConfirm,
+}: { svc: Service | null; onClose: () => void; onConfirm: (price: number) => void }) {
+  const [price, setPrice] = useState<number>(0);
+  useEffect(() => { if (svc) setPrice(Number(svc.price)); }, [svc]);
+  if (!svc) return null;
+  return (
+    <Dialog open={!!svc} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-display text-xl">{svc.name}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Menu price: <span className="font-medium text-foreground">{svc.price_label ?? `$${Number(svc.price).toFixed(2)} & up`}</span>.
+            Enter the final price for this service.
+          </p>
+          <div className="space-y-1.5">
+            <Label>Price ($)</Label>
+            <Input
+              autoFocus type="number" min="0" step="0.01"
+              value={price || ""}
+              onChange={(e) => setPrice(Number(e.target.value) || 0)}
+              className="h-12 text-lg font-semibold"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={() => onConfirm(price)}
+            disabled={price <= 0}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            Add to cart
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ============== GIFT CARD ============== */
+function GiftCardDialog({
+  open, onOpenChange, onAdd,
+}: { open: boolean; onOpenChange: (b: boolean) => void; onAdd: (v: { amount: number; buyerName?: string; recipientName?: string }) => void }) {
+  const [amount, setAmount] = useState(0);
+  const [buyerName, setBuyer] = useState("");
+  const [recipientName, setRecipient] = useState("");
+  useEffect(() => { if (open) { setAmount(0); setBuyer(""); setRecipient(""); } }, [open]);
+  const presets = [25, 50, 75, 100, 150, 200];
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle className="font-display text-xl">Sell gift card</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            {presets.map((p) => (
+              <button key={p} onClick={() => setAmount(p)}
+                className={`rounded-lg border-2 p-3 text-center font-semibold ${
+                  amount === p ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
+                }`}>${p}</button>
+            ))}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Amount ($)</Label>
+            <Input type="number" min="0" step="0.01" value={amount || ""}
+              onChange={(e) => setAmount(Number(e.target.value) || 0)} className="h-11 text-lg" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label>Buyer (optional)</Label>
+              <Input value={buyerName} onChange={(e) => setBuyer(e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>Recipient (optional)</Label>
+              <Input value={recipientName} onChange={(e) => setRecipient(e.target.value)} /></div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button disabled={amount <= 0}
+            onClick={() => onAdd({ amount, buyerName: buyerName || undefined, recipientName: recipientName || undefined })}
+            className="bg-primary text-primary-foreground hover:bg-primary/90">Add to cart</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ============== MEMBERSHIP ============== */
+function MembershipDialog({
+  open, onOpenChange, onAdd,
+}: { open: boolean; onOpenChange: (b: boolean) => void; onAdd: (v: { type: string; price: number; expirationDate?: string }) => void }) {
+  const [type, setType] = useState("");
+  const [price, setPrice] = useState(0);
+  const [exp, setExp] = useState("");
+  useEffect(() => { if (open) { setType(""); setPrice(0); setExp(""); } }, [open]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader><DialogTitle className="font-display text-xl">Sell membership</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5"><Label>Membership type *</Label>
+            <Input autoFocus value={type} onChange={(e) => setType(e.target.value)}
+              placeholder="e.g. Monthly Unlimited Threading" /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label>Price ($) *</Label>
+              <Input type="number" min="0" step="0.01" value={price || ""}
+                onChange={(e) => setPrice(Number(e.target.value) || 0)} className="h-11" /></div>
+            <div className="space-y-1.5"><Label>Expires</Label>
+              <Input type="date" value={exp} onChange={(e) => setExp(e.target.value)} className="h-11" /></div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button disabled={!type || price <= 0}
+            onClick={() => onAdd({ type, price, expirationDate: exp || undefined })}
+            className="bg-primary text-primary-foreground hover:bg-primary/90">Add to cart</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 /* ============== CART PANEL ============== */
 function CartPanel({

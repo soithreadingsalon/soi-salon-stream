@@ -34,9 +34,10 @@ function SettingsPage() {
         <p className="text-sm text-muted-foreground">Manage your business, workers, services and customers</p>
       </div>
       <Tabs defaultValue="business">
-        <TabsList className="bg-muted/40">
+        <TabsList className="flex-wrap bg-muted/40">
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="workers">Workers & PINs</TabsTrigger>
+          <TabsTrigger value="shifts">Shifts</TabsTrigger>
           <TabsTrigger value="catalog">Services</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="recycle">Recycle Bin</TabsTrigger>
@@ -44,6 +45,7 @@ function SettingsPage() {
 
         <TabsContent value="business" className="pt-6"><BusinessTab /></TabsContent>
         <TabsContent value="workers"  className="pt-6"><WorkersTab /></TabsContent>
+        <TabsContent value="shifts"   className="pt-6"><ShiftsTab /></TabsContent>
         <TabsContent value="catalog"  className="pt-6"><QuickLink to="/services" label="Open service catalog editor" /></TabsContent>
         <TabsContent value="customers" className="pt-6"><QuickLink to="/customers" label="Open customer directory" /></TabsContent>
         <TabsContent value="recycle"   className="pt-6"><RecycleBinTab /></TabsContent>
@@ -443,6 +445,120 @@ function DeletedList({
             ))}
             {data.length === 0 && (
               <tr><td colSpan={columns.length + 2} className="p-8 text-center text-sm text-muted-foreground">{emptyLabel}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ─────────────────────────── SHIFTS ─────────────────────────── */
+
+function ShiftsTab() {
+  const qc = useQueryClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const [from, setFrom] = useState(weekAgo);
+  const [to, setTo] = useState(today);
+
+  const { data: shifts = [] } = useQuery({
+    queryKey: ["worker_shifts_admin", from, to],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("worker_shifts")
+        .select("*")
+        .gte("shift_date", from)
+        .lte("shift_date", to)
+        .order("clock_in_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const closeOpen = useMutation({
+    mutationFn: async (s: any) => {
+      const now = new Date();
+      const hrs = (now.getTime() - new Date(s.clock_in_at).getTime()) / 3_600_000;
+      const { error } = await supabase
+        .from("worker_shifts")
+        .update({
+          clock_out_at: now.toISOString(),
+          total_hours: Number(hrs.toFixed(2)),
+          status: "closed",
+          is_adjusted: true,
+          admin_notes: "Closed by admin",
+        } as any)
+        .eq("id", s.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Shift closed"); qc.invalidateQueries({ queryKey: ["worker_shifts_admin"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const totalHours = (shifts as any[])
+    .filter((s) => s.total_hours)
+    .reduce((sum, s) => sum + Number(s.total_hours), 0);
+
+  return (
+    <Card className="border-border/60 shadow-soft">
+      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="font-display text-xl">Worker shifts</h2>
+          <p className="text-sm text-muted-foreground">
+            {(shifts as any[]).length} shift(s) · {totalHours.toFixed(2)}h total
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">From</Label>
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 w-40" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">To</Label>
+            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 w-40" />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="p-3 text-left">Date</th>
+              <th className="p-3 text-left">Worker</th>
+              <th className="p-3 text-left">Clock in</th>
+              <th className="p-3 text-left">Clock out</th>
+              <th className="p-3 text-right">Hours</th>
+              <th className="p-3 text-center">Status</th>
+              <th className="p-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(shifts as any[]).map((s) => (
+              <tr key={s.id} className="border-t border-border">
+                <td className="p-3">{s.shift_date}</td>
+                <td className="p-3 font-medium">{s.worker_name ?? "—"}</td>
+                <td className="p-3 text-muted-foreground">{new Date(s.clock_in_at).toLocaleTimeString()}</td>
+                <td className="p-3 text-muted-foreground">
+                  {s.clock_out_at ? new Date(s.clock_out_at).toLocaleTimeString() : "—"}
+                </td>
+                <td className="p-3 text-right font-semibold">{s.total_hours ? Number(s.total_hours).toFixed(2) : "—"}</td>
+                <td className="p-3 text-center">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    s.status === "open" ? "bg-gold/15 text-foreground" : "bg-muted text-muted-foreground"
+                  }`}>{s.status}</span>
+                  {s.is_adjusted && <span className="ml-1 text-[10px] text-amber-600">(adj)</span>}
+                </td>
+                <td className="p-3 text-right">
+                  {s.status === "open" && (
+                    <Button size="sm" variant="outline" onClick={() => closeOpen.mutate(s)}>Close shift</Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {(shifts as any[]).length === 0 && (
+              <tr><td colSpan={7} className="p-12 text-center text-sm text-muted-foreground">No shifts in this range</td></tr>
             )}
           </tbody>
         </table>
