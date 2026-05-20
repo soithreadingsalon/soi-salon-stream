@@ -271,7 +271,7 @@ function ReportsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="kpi-grid grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi label="Gross sales" value={fmt(kpis.totalRevenue)} />
         <Kpi label="Net sales" value={fmt(kpis.netSales)} sub={`After ${fmt(kpis.totalDiscount)} discount`} />
         <Kpi label="Tax collected" value={fmt(kpis.totalTax)} />
