@@ -1,57 +1,41 @@
 ## Plan
 
-### 1. Wipe all test data (migration)
+### 1. POS — remove duplicate Gift card / Membership entry
 
-Single migration that `TRUNCATE ... RESTART IDENTITY CASCADE` on transactional tables only — preserves services, categories, business settings, profiles, roles, and worker pins.
+The code only defines **one** pair of Gift card + Membership buttons (in the category chip row of `PosClient.tsx`, lines 413–420). I couldn't find a second pair in the source.
 
-Tables wiped:
-- `orders`, `order_items`, `payments` (resets `order_number`)
-- `gift_cards`, `memberships`
-- `loyalty_accounts`, `loyalty_transactions`
-- `customers`, `customers_deleted`
-- `worker_shifts`
-- `audit_logs`
+To resolve this correctly I'll:
+- Open the running POS page in the browser tool, take a screenshot, and locate the second (broken) Gift / Membership entry.
+- Likely candidates: a service tile auto-created in some category, a leftover row in the cart's loyalty/quick-actions strip, or a chip rendered both at the top of the catalog and inside the cart panel on tablet.
+- Delete the one that doesn't open the working `GiftCardDialog` / `MembershipDialog`, keeping the gold-ringed pair next to the category chips (those are wired to `setGiftOpen` / `setMemOpen` and known good).
 
-Current data that will be deleted: 2 orders, 5 line items, 2 payments, 1 customer, 1 membership, 1 shift, 1 loyalty account.
+If after inspection the only entries on screen are the working ones (i.e. you're seeing one in the catalog area + one in the side cart that does the same thing), I'll remove the cart-side ones so there's a single source of truth above the service grid.
 
-### 2. Excel export on Reports (admin)
+### 2. Admin Shifts — full timestamped log + multiple clock-in/out per day
 
-`src/routes/_authenticated/reports.tsx`:
-- Add `bun add xlsx`.
-- New **Export Excel** button next to CSV/Print.
-- Workbook with sheets: **Summary** (KPIs), **Orders**, **Payments by method**, **Top services**.
-- Currency number format on $ columns, bold headers, sensible column widths.
-- Filename `soi-report-{from}-to-{to}.xlsx`.
+Right now the admin Shifts tab (`settings.tsx` → `ShiftsTab`) shows only a clock-in time + clock-out time + total hours per row, and dates render bare ISO. Each `worker_shifts` row is already one clock-in/out pair, so multiple in/outs already become multiple rows — but they're not grouped or formatted.
 
-### 3. Per-worker self-serve report
+Changes:
+- Format every timestamp as **`MMM D, YYYY · h:mm:ss A`** (12-hour with AM/PM) for both `clock_in_at` and `clock_out_at`, in the admin Shifts table, in My Sales hours calc display, and in the ClockWidget tooltip.
+- Group rows by **worker → date**, with a collapsible section per worker/day listing every clock-in/out pair in chronological order plus a per-day subtotal and a per-worker grand total for the date range.
+- Add a "Sessions" count column (number of clock-in/out pairs that day) so multiple sessions are obvious at a glance.
+- Add per-worker filter dropdown next to the from/to dates.
+- Add **Export Excel** + **Print** buttons reusing the existing `reportExport` helper. Excel workbook sheets:
+  - **Summary**: total hours per worker for the range.
+  - **Sessions**: every single clock-in/out row with worker, date, clock in (AM/PM), clock out (AM/PM), hours, status, adjusted flag, admin notes.
+- Print uses the existing `print-doc` stylesheet from the last turn (bigger fonts, repeating headers).
 
-Rebuild `src/routes/_authenticated/my-sales.tsx` so every signed-in worker can pull their own numbers:
-- Date range with presets (Today / Last 7d / Last 30d / Custom).
-- KPIs filtered to `cashier_id = me`: orders, gross, tips, average ticket, hours worked (from `worker_shifts`), by-method, top services.
-- **Download Excel** and **Download CSV** buttons (same sheet structure, scoped to self).
-- Print button using the same shared print stylesheet as admin Reports.
+### 3. Clock-in widget — show current date & time on login
 
-Uses existing RLS — no schema or policy changes needed.
+`ClockWidget` (top bar) currently shows just elapsed time once a shift is open. Update:
+- Always render the **live clock**: `Wed, May 20, 2026 · 3:42:18 PM`, ticking every second, visible whether or not the worker is clocked in.
+- When clocked in, also show "On shift since {clock-in time AM/PM} · {elapsed}".
+- Toast on clock-in/out includes the timestamp (e.g. "Clocked in at 3:42 PM").
 
-### 4. Print layout polish (admin Reports + My Sales)
+### 4. Centralize timestamp formatting
 
-The current print output uses screen sizes and relies on `print:hidden`/`print:p-0` only. Rework:
-
-- Add a dedicated `@media print` block in `src/styles.css`:
-  - Base font bumped to ~12pt; table cells 11pt; KPI labels 9pt; H1 18pt.
-  - `@page { size: auto; margin: 12mm; }` for paper, plus a narrow variant we toggle for 80mm receipt printer.
-  - Force black-on-white, remove shadows/borders we don't need, keep gold accent on totals.
-  - `table { width: 100%; border-collapse: collapse; } th, td { padding: 6px 8px; border-bottom: 1px solid #ccc; }`.
-  - `thead { display: table-header-group; }` so headers repeat across pages; `tr, .kpi { page-break-inside: avoid; }`.
-  - Hide filter card, sidebar, nav, buttons via existing `print:hidden` + new `.no-print` utility.
-- Add a small print header injected only when printing: business name + address + phone (from `business_settings`) + report title + date range + generated-at timestamp + cashier name (for My Sales).
-- Honor the existing cash-drawer / receipt printer width setting (`business_settings.cash_drawer_*`) only as a toggle: a **Print (Receipt 80mm)** secondary option that sets `@page { size: 80mm auto }` via a body class — main Print stays full-page Letter. (Reports are too wide for 58mm, so we don't expose that.)
-- Right-align numeric columns; ensure totals row is bold; ensure no horizontal overflow at print width.
+Create `src/lib/datetime.ts` with helpers `fmtDateTime(iso)`, `fmtTime(iso)`, `fmtDate(iso)` using `en-US` 12-hour locale options. Use across ClockWidget, ShiftsTab, my-sales, reports, ReceiptDialog so AM/PM is consistent everywhere.
 
 ### Out of scope
-- No POS checkout changes.
-- No new tables, RLS, or server functions.
-- No changes to receipt printing in `ReceiptDialog`.
-
-### Confirmation needed
-Confirm I should proceed with the data wipe in step 1 — it's irreversible.
+- No DB schema changes — `worker_shifts` already has everything we need (`clock_in_at`, `clock_out_at`, `worker_id`, `worker_name`, `total_hours`, `status`, `is_adjusted`, `admin_notes`).
+- No changes to POS checkout flow or reports KPIs.
