@@ -17,8 +17,9 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, KeyRound, UserX, ExternalLink, Undo2, Trash2 } from "lucide-react";
-import { upsertWorkerPin, deactivateWorker } from "@/lib/worker-auth.functions";
+import { Plus, KeyRound, UserX, ExternalLink, Undo2, Trash2, Shield } from "lucide-react";
+import { upsertWorkerPin, deactivateWorker, setWorkerRole, listWorkerRoles, setRolePermissions } from "@/lib/worker-auth.functions";
+
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
@@ -39,6 +40,7 @@ function SettingsPage() {
         <TabsList className="flex-wrap bg-muted/40">
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="workers">Workers & PINs</TabsTrigger>
+          <TabsTrigger value="permissions">Roles & Permissions</TabsTrigger>
           <TabsTrigger value="shifts">Shifts</TabsTrigger>
           <TabsTrigger value="catalog">Services</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
@@ -47,11 +49,13 @@ function SettingsPage() {
 
         <TabsContent value="business" className="pt-6"><BusinessTab /></TabsContent>
         <TabsContent value="workers"  className="pt-6"><WorkersTab /></TabsContent>
+        <TabsContent value="permissions" className="pt-6"><PermissionsTab /></TabsContent>
         <TabsContent value="shifts"   className="pt-6"><ShiftsTab /></TabsContent>
         <TabsContent value="catalog"  className="pt-6"><QuickLink to="/services" label="Open service catalog editor" /></TabsContent>
         <TabsContent value="customers" className="pt-6"><QuickLink to="/customers" label="Open customer directory" /></TabsContent>
         <TabsContent value="recycle"   className="pt-6"><RecycleBinTab /></TabsContent>
       </Tabs>
+
     </div>
   );
 }
@@ -175,14 +179,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>;
 }
 
-/* ─────────────────────────── WORKERS ─────────────────────────── */
-
 function WorkersTab() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [roleEditing, setRoleEditing] = useState<any | null>(null);
   const upsert = useServerFn(upsertWorkerPin);
   const deact = useServerFn(deactivateWorker);
+  const setRole = useServerFn(setWorkerRole);
+  const listRoles = useServerFn(listWorkerRoles);
 
   const { data: workers = [] } = useQuery({
     queryKey: ["workers_admin"],
@@ -203,11 +208,46 @@ function WorkersTab() {
     },
   });
 
+  const { data: rolesByUser = {} } = useQuery({
+    queryKey: ["worker_roles_admin"],
+    queryFn: async () => {
+      const rows = await listRoles();
+      const map: Record<string, string[]> = {};
+      for (const r of rows as any[]) {
+        (map[r.user_id] ??= []).push(r.role);
+      }
+      return map;
+    },
+  });
+
   const deactMut = useMutation({
     mutationFn: async (workerId: string) => { await deact({ data: { workerId } }); },
     onSuccess: () => { toast.success("Worker deactivated"); qc.invalidateQueries({ queryKey: ["workers_admin"] }); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const roleMut = useMutation({
+    mutationFn: async (vars: { workerId: string; role: "manager" | "cashier" }) =>
+      setRole({ data: vars }),
+    onSuccess: () => {
+      toast.success("Role updated");
+      setRoleEditing(null);
+      qc.invalidateQueries({ queryKey: ["worker_roles_admin"] });
+      qc.invalidateQueries({ queryKey: ["role_permissions"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const displayRole = (uid: string) => {
+    const rs = rolesByUser[uid] ?? [];
+    if (rs.includes("super_admin")) return "Super Admin";
+    if (rs.includes("admin")) return "Admin";
+    if (rs.includes("manager")) return "Manager";
+    if (rs.includes("cashier")) return "Cashier";
+    return "—";
+  };
+  const isAdminish = (uid: string) =>
+    (rolesByUser[uid] ?? []).some((r) => r === "admin" || r === "super_admin");
 
   return (
     <Card className="border-border/60 shadow-soft">
@@ -216,25 +256,49 @@ function WorkersTab() {
           <h2 className="font-display text-xl">Workers & PINs</h2>
           <p className="text-sm text-muted-foreground">Workers sign in to the POS with a 4-digit PIN</p>
         </div>
-        <Button onClick={() => { setEditing({ mode: "create", email: "", fullName: "", pin: "" }); setOpen(true); }} className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button onClick={() => { setEditing({ mode: "create", email: "", fullName: "", pin: "", role: "cashier" }); setOpen(true); }} className="bg-primary text-primary-foreground hover:bg-primary/90">
           <Plus className="mr-2 h-4 w-4" /> Add worker
         </Button>
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-            <tr><th className="p-3 text-left">Name</th><th className="p-3 text-left">Email</th><th className="p-3 text-center">Active</th><th className="p-3 text-right">Actions</th></tr>
+            <tr>
+              <th className="p-3 text-left">Name</th>
+              <th className="p-3 text-left">Email</th>
+              <th className="p-3 text-left">Role</th>
+              <th className="p-3 text-center">Active</th>
+              <th className="p-3 text-right">Actions</th>
+            </tr>
           </thead>
           <tbody>
             {workers.map((w: any) => (
               <tr key={w.user_id} className="border-t border-border">
                 <td className="p-3 font-medium">{w.display_name ?? w.profiles?.full_name ?? "—"}</td>
                 <td className="p-3 text-muted-foreground">{w.profiles?.email ?? "—"}</td>
+                <td className="p-3">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                    {displayRole(w.user_id)}
+                  </span>
+                </td>
                 <td className="p-3 text-center">{w.active ? "✓" : "—"}</td>
                 <td className="p-3 text-right space-x-1">
                   <Button size="sm" variant="outline" onClick={() => { setEditing({ mode: "reset", workerId: w.user_id, fullName: w.display_name ?? w.profiles?.full_name, pin: "" }); setOpen(true); }}>
                     <KeyRound className="mr-1 h-4 w-4" /> Reset PIN
                   </Button>
+                  {!isAdminish(w.user_id) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setRoleEditing({
+                        workerId: w.user_id,
+                        name: w.display_name ?? w.profiles?.full_name ?? "worker",
+                        role: (rolesByUser[w.user_id] ?? []).includes("manager") ? "manager" : "cashier",
+                      })}
+                    >
+                      <Shield className="mr-1 h-4 w-4" /> Change role
+                    </Button>
+                  )}
                   {w.active && (
                     <Button size="sm" variant="ghost" onClick={() => confirm(`Deactivate ${w.display_name}?`) && deactMut.mutate(w.user_id)}>
                       <UserX className="mr-1 h-4 w-4 text-destructive" /> Deactivate
@@ -244,7 +308,7 @@ function WorkersTab() {
               </tr>
             ))}
             {workers.length === 0 && (
-              <tr><td colSpan={4} className="p-12 text-center text-sm text-muted-foreground">No workers yet — add your first one</td></tr>
+              <tr><td colSpan={5} className="p-12 text-center text-sm text-muted-foreground">No workers yet — add your first one</td></tr>
             )}
           </tbody>
         </table>
@@ -256,13 +320,63 @@ function WorkersTab() {
           setOpen={setOpen}
           state={editing}
           onSave={async (vals) => {
-            await upsert({ data: vals });
+            const res: any = await upsert({ data: { email: vals.email, fullName: vals.fullName, workerId: vals.workerId, pin: vals.pin } });
+            if (vals.role && vals.mode === "create" && res?.userId) {
+              await setRole({ data: { workerId: res.userId, role: vals.role } });
+            }
             toast.success("Saved");
             setOpen(false);
             qc.invalidateQueries({ queryKey: ["workers_admin"] });
             qc.invalidateQueries({ queryKey: ["workers_public"] });
+            qc.invalidateQueries({ queryKey: ["worker_roles_admin"] });
           }}
         />
+      )}
+
+      {roleEditing && (
+        <Dialog open={!!roleEditing} onOpenChange={(o) => !o && setRoleEditing(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle className="font-display">Change role — {roleEditing.name}</DialogTitle></DialogHeader>
+            <div className="space-y-3 py-2">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <input
+                  type="radio"
+                  name="role"
+                  className="mt-1"
+                  checked={roleEditing.role === "manager"}
+                  onChange={() => setRoleEditing({ ...roleEditing, role: "manager" })}
+                />
+                <div>
+                  <div className="font-medium">Manager</div>
+                  <div className="text-xs text-muted-foreground">Can use POS plus edit catalog, customers, memberships, view reports — configurable in the Roles & Permissions tab.</div>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <input
+                  type="radio"
+                  name="role"
+                  className="mt-1"
+                  checked={roleEditing.role === "cashier"}
+                  onChange={() => setRoleEditing({ ...roleEditing, role: "cashier" })}
+                />
+                <div>
+                  <div className="font-medium">Cashier</div>
+                  <div className="text-xs text-muted-foreground">POS access only by default.</div>
+                </div>
+              </label>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRoleEditing(null)}>Cancel</Button>
+              <Button
+                onClick={() => roleMut.mutate({ workerId: roleEditing.workerId, role: roleEditing.role })}
+                disabled={roleMut.isPending}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {roleMut.isPending ? "Saving…" : "Save role"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </Card>
   );
@@ -272,6 +386,7 @@ function WorkerDialog({ open, setOpen, state, onSave }: { open: boolean; setOpen
   const [email, setEmail] = useState(state.email ?? "");
   const [fullName, setFullName] = useState(state.fullName ?? "");
   const [pin, setPin] = useState("");
+  const [role, setRole] = useState<"manager" | "cashier">(state.role ?? "cashier");
   const [busy, setBusy] = useState(false);
   const isCreate = state.mode === "create";
 
@@ -281,8 +396,8 @@ function WorkerDialog({ open, setOpen, state, onSave }: { open: boolean; setOpen
     setBusy(true);
     try {
       await onSave(isCreate
-        ? { email, fullName, pin }
-        : { workerId: state.workerId, fullName: state.fullName, pin });
+        ? { mode: "create", email, fullName, pin, role }
+        : { mode: "reset", workerId: state.workerId, fullName: state.fullName, pin });
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
     } finally { setBusy(false); }
@@ -297,6 +412,16 @@ function WorkerDialog({ open, setOpen, state, onSave }: { open: boolean; setOpen
             <>
               <Field label="Full name"><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></Field>
               <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="worker@example.com" /></Field>
+              <Field label="Role">
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as any)}
+                >
+                  <option value="cashier">Cashier (POS only)</option>
+                  <option value="manager">Manager (POS + catalog + reports)</option>
+                </select>
+              </Field>
             </>
           )}
           <Field label="4-digit PIN">
@@ -314,6 +439,142 @@ function WorkerDialog({ open, setOpen, state, onSave }: { open: boolean; setOpen
     </Dialog>
   );
 }
+
+/* ─────────────────────────── PERMISSIONS ─────────────────────────── */
+
+type PermDef = { key: string; label: string };
+type PermGroup = { group: string; perms: PermDef[] };
+
+const PERMISSION_GROUPS: PermGroup[] = [
+  { group: "POS", perms: [
+    { key: "pos.use", label: "Use POS / take payments" },
+    { key: "pos.refund", label: "Process refunds" },
+    { key: "giftcards.sell", label: "Sell gift cards" },
+  ]},
+  { group: "Catalog", perms: [
+    { key: "services.edit", label: "Add / edit services" },
+    { key: "categories.edit", label: "Edit categories" },
+  ]},
+  { group: "Customers", perms: [
+    { key: "customers.view", label: "View customers" },
+    { key: "customers.edit", label: "Edit customers" },
+    { key: "customers.delete", label: "Delete customers" },
+  ]},
+  { group: "Memberships", perms: [
+    { key: "memberships.view", label: "View memberships" },
+    { key: "memberships.manage", label: "Sell & manage memberships" },
+  ]},
+  { group: "Reports", perms: [
+    { key: "reports.view", label: "View reports" },
+    { key: "reports.export", label: "Export reports" },
+  ]},
+  { group: "Shifts", perms: [
+    { key: "shifts.view", label: "View own shifts" },
+    { key: "shifts.edit", label: "Edit shifts" },
+  ]},
+];
+
+function PermissionsTab() {
+  const qc = useQueryClient();
+  const save = useServerFn(setRolePermissions);
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["role_permissions_admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("role_permissions")
+        .select("role, permission_key, allowed");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const initial = (role: "manager" | "cashier") => {
+    const map: Record<string, boolean> = {};
+    for (const g of PERMISSION_GROUPS) for (const p of g.perms) map[p.key] = false;
+    for (const r of rows as any[]) if (r.role === role) map[r.permission_key] = !!r.allowed;
+    return map;
+  };
+
+  const [mgr, setMgr] = useState<Record<string, boolean>>({});
+  const [csh, setCsh] = useState<Record<string, boolean>>({});
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    if (!isLoading && !loaded) {
+      setMgr(initial("manager"));
+      setCsh(initial("cashier"));
+      setLoaded(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, rows]);
+
+  const saveMut = useMutation({
+    mutationFn: async (vars: { role: "manager" | "cashier"; permissions: Record<string, boolean> }) =>
+      save({ data: vars }),
+    onSuccess: () => {
+      toast.success("Permissions saved");
+      qc.invalidateQueries({ queryKey: ["role_permissions"] });
+      qc.invalidateQueries({ queryKey: ["role_permissions_admin"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  if (isLoading || !loaded) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+
+  const renderColumn = (
+    title: string,
+    state: Record<string, boolean>,
+    setState: (s: Record<string, boolean>) => void,
+    role: "manager" | "cashier",
+  ) => (
+    <Card className="border-border/60 shadow-soft">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <h3 className="font-display text-lg">{title}</h3>
+        <Button
+          size="sm"
+          onClick={() => saveMut.mutate({ role, permissions: state })}
+          disabled={saveMut.isPending}
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          Save {title}
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {PERMISSION_GROUPS.map((g) => (
+          <div key={g.group}>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{g.group}</p>
+            <div className="space-y-2">
+              {g.perms.map((p) => (
+                <div key={p.key} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                  <span className="text-sm">{p.label}</span>
+                  <Switch
+                    checked={!!state[p.key]}
+                    onCheckedChange={(v) => setState({ ...state, [p.key]: v })}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-border/60 bg-muted/30 shadow-soft">
+        <CardContent className="p-4 text-sm text-muted-foreground">
+          Toggle what each role can do in the app. <strong>Admins and Super Admins</strong> always have full access and aren't shown here.
+        </CardContent>
+      </Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        {renderColumn("Manager", mgr, setMgr, "manager")}
+        {renderColumn("Cashier", csh, setCsh, "cashier")}
+      </div>
+    </div>
+  );
+}
+
 
 /* ─────────────────────────── RECYCLE BIN ─────────────────────────── */
 

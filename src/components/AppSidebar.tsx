@@ -24,22 +24,40 @@ import {
 } from "@/components/ui/sidebar";
 import { SoiLogo } from "./SoiLogo";
 import { useAuth } from "@/hooks/use-auth";
+import { usePermissions, type PermissionKey } from "@/hooks/use-permissions";
 import { Button } from "./ui/button";
 
-const items = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["super_admin", "admin", "manager"] },
-  { title: "POS Checkout", url: "/pos", icon: ShoppingBag, roles: ["super_admin", "admin", "manager", "cashier"] },
-  { title: "My Sales", url: "/my-sales", icon: History, roles: ["cashier"] },
-  { title: "Customers", url: "/customers", icon: Users, roles: ["super_admin", "admin", "manager"] },
-  { title: "Services", url: "/services", icon: Sparkles, roles: ["super_admin", "admin"] },
-  { title: "Memberships", url: "/memberships", icon: IdCard, roles: ["super_admin", "admin", "manager"] },
-  { title: "Reports", url: "/reports", icon: BarChart3, roles: ["super_admin", "admin", "manager"] },
-  { title: "Settings", url: "/settings", icon: Settings, roles: ["super_admin", "admin"] },
-] as const;
+type NavItem = {
+  title: string;
+  url: string;
+  icon: typeof LayoutDashboard;
+  // Show if user has ANY of these permissions (admin always sees all)
+  permissions?: PermissionKey[];
+  // Or admin-only when no permissions are listed
+  adminOnly?: boolean;
+};
+
+const items: NavItem[] = [
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, permissions: ["reports.view"] },
+  { title: "POS Checkout", url: "/pos", icon: ShoppingBag, permissions: ["pos.use"] },
+  { title: "My Sales", url: "/my-sales", icon: History, permissions: ["pos.use"] },
+  { title: "Customers", url: "/customers", icon: Users, permissions: ["customers.view"] },
+  { title: "Services", url: "/services", icon: Sparkles, permissions: ["services.edit"] },
+  { title: "Memberships", url: "/memberships", icon: IdCard, permissions: ["memberships.view", "memberships.manage"] },
+  { title: "Reports", url: "/reports", icon: BarChart3, permissions: ["reports.view"] },
+  { title: "Settings", url: "/settings", icon: Settings, adminOnly: true },
+];
 
 export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const { hasRole, signOut, user, roles } = useAuth();
+  const { signOut, user, roles, hasRole } = useAuth();
+  const { can, isAdmin } = usePermissions();
+
+  const visible = items.filter((it) => {
+    if (it.adminOnly) return hasRole("super_admin", "admin");
+    if (isAdmin) return true;
+    return (it.permissions ?? []).some((p) => can(p));
+  });
 
   return (
     <Sidebar collapsible="icon">
@@ -53,21 +71,19 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items
-                .filter((it) => hasRole(...(it.roles as any)))
-                .map((it) => {
-                  const active = path === it.url || path.startsWith(it.url + "/");
-                  return (
-                    <SidebarMenuItem key={it.url}>
-                      <SidebarMenuButton asChild isActive={active}>
-                        <Link to={it.url} className="flex items-center gap-3">
-                          <it.icon className="h-4 w-4" />
-                          <span>{it.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
+              {visible.map((it) => {
+                const active = path === it.url || path.startsWith(it.url + "/");
+                return (
+                  <SidebarMenuItem key={it.url}>
+                    <SidebarMenuButton asChild isActive={active}>
+                      <Link to={it.url} className="flex items-center gap-3">
+                        <it.icon className="h-4 w-4" />
+                        <span>{it.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
