@@ -135,4 +135,74 @@ export const deactivateWorker = createServerFn({ method: "POST" })
       .update({ active: false })
       .eq("user_id", data.workerId);
     return { ok: true };
+    await supabaseAdmin.from("worker_pins")
+      .update({ active: false })
+      .eq("user_id", data.workerId);
+    return { ok: true };
   });
+
+/* ──────────────── Role assignment & permissions ──────────────── */
+
+async function requireAdmin(ctx: { supabase: any; userId: string }) {
+  const { data: roles } = await ctx.supabase
+    .from("user_roles").select("role").eq("user_id", ctx.userId);
+  const ok = (roles ?? []).some((r: any) => r.role === "super_admin" || r.role === "admin");
+  if (!ok) throw new Error("Forbidden");
+}
+
+export const setWorkerRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      workerId: z.string().uuid(),
+      role: z.enum(["manager", "cashier"]),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    // Remove only manager/cashier roles (never touch admin/super_admin)
+    await supabaseAdmin.from("user_roles")
+      .delete()
+      .eq("user_id", data.workerId)
+      .in("role", ["manager", "cashier"]);
+    const { error } = await supabaseAdmin.from("user_roles")
+      .insert({ user_id: data.workerId, role: data.role });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const listWorkerRoles = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { data, error } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, role");
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const setRolePermissions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({
+      role: z.enum(["manager", "cashier"]),
+      permissions: z.record(z.string().min(1).max(64), z.boolean()),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const rows = Object.entries(data.permissions).map(([permission_key, allowed]) => ({
+      role: data.role,
+      permission_key,
+      allowed,
+      updated_at: new Date().toISOString(),
+    }));
+    if (rows.length === 0) return { ok: true };
+    const { error } = await supabaseAdmin
+      .from("role_permissions")
+      .upsert(rows, { onConflict: "role,permission_key" });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
