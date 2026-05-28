@@ -179,14 +179,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div className="space-y-1.5"><Label>{label}</Label>{children}</div>;
 }
 
-/* ─────────────────────────── WORKERS ─────────────────────────── */
-
 function WorkersTab() {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [roleEditing, setRoleEditing] = useState<any | null>(null);
   const upsert = useServerFn(upsertWorkerPin);
   const deact = useServerFn(deactivateWorker);
+  const setRole = useServerFn(setWorkerRole);
+  const listRoles = useServerFn(listWorkerRoles);
 
   const { data: workers = [] } = useQuery({
     queryKey: ["workers_admin"],
@@ -207,11 +208,46 @@ function WorkersTab() {
     },
   });
 
+  const { data: rolesByUser = {} } = useQuery({
+    queryKey: ["worker_roles_admin"],
+    queryFn: async () => {
+      const rows = await listRoles();
+      const map: Record<string, string[]> = {};
+      for (const r of rows as any[]) {
+        (map[r.user_id] ??= []).push(r.role);
+      }
+      return map;
+    },
+  });
+
   const deactMut = useMutation({
     mutationFn: async (workerId: string) => { await deact({ data: { workerId } }); },
     onSuccess: () => { toast.success("Worker deactivated"); qc.invalidateQueries({ queryKey: ["workers_admin"] }); },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const roleMut = useMutation({
+    mutationFn: async (vars: { workerId: string; role: "manager" | "cashier" }) =>
+      setRole({ data: vars }),
+    onSuccess: () => {
+      toast.success("Role updated");
+      setRoleEditing(null);
+      qc.invalidateQueries({ queryKey: ["worker_roles_admin"] });
+      qc.invalidateQueries({ queryKey: ["role_permissions"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const displayRole = (uid: string) => {
+    const rs = rolesByUser[uid] ?? [];
+    if (rs.includes("super_admin")) return "Super Admin";
+    if (rs.includes("admin")) return "Admin";
+    if (rs.includes("manager")) return "Manager";
+    if (rs.includes("cashier")) return "Cashier";
+    return "—";
+  };
+  const isAdminish = (uid: string) =>
+    (rolesByUser[uid] ?? []).some((r) => r === "admin" || r === "super_admin");
 
   return (
     <Card className="border-border/60 shadow-soft">
@@ -220,25 +256,49 @@ function WorkersTab() {
           <h2 className="font-display text-xl">Workers & PINs</h2>
           <p className="text-sm text-muted-foreground">Workers sign in to the POS with a 4-digit PIN</p>
         </div>
-        <Button onClick={() => { setEditing({ mode: "create", email: "", fullName: "", pin: "" }); setOpen(true); }} className="bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button onClick={() => { setEditing({ mode: "create", email: "", fullName: "", pin: "", role: "cashier" }); setOpen(true); }} className="bg-primary text-primary-foreground hover:bg-primary/90">
           <Plus className="mr-2 h-4 w-4" /> Add worker
         </Button>
       </CardHeader>
       <CardContent className="p-0">
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
-            <tr><th className="p-3 text-left">Name</th><th className="p-3 text-left">Email</th><th className="p-3 text-center">Active</th><th className="p-3 text-right">Actions</th></tr>
+            <tr>
+              <th className="p-3 text-left">Name</th>
+              <th className="p-3 text-left">Email</th>
+              <th className="p-3 text-left">Role</th>
+              <th className="p-3 text-center">Active</th>
+              <th className="p-3 text-right">Actions</th>
+            </tr>
           </thead>
           <tbody>
             {workers.map((w: any) => (
               <tr key={w.user_id} className="border-t border-border">
                 <td className="p-3 font-medium">{w.display_name ?? w.profiles?.full_name ?? "—"}</td>
                 <td className="p-3 text-muted-foreground">{w.profiles?.email ?? "—"}</td>
+                <td className="p-3">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                    {displayRole(w.user_id)}
+                  </span>
+                </td>
                 <td className="p-3 text-center">{w.active ? "✓" : "—"}</td>
                 <td className="p-3 text-right space-x-1">
                   <Button size="sm" variant="outline" onClick={() => { setEditing({ mode: "reset", workerId: w.user_id, fullName: w.display_name ?? w.profiles?.full_name, pin: "" }); setOpen(true); }}>
                     <KeyRound className="mr-1 h-4 w-4" /> Reset PIN
                   </Button>
+                  {!isAdminish(w.user_id) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setRoleEditing({
+                        workerId: w.user_id,
+                        name: w.display_name ?? w.profiles?.full_name ?? "worker",
+                        role: (rolesByUser[w.user_id] ?? []).includes("manager") ? "manager" : "cashier",
+                      })}
+                    >
+                      <Shield className="mr-1 h-4 w-4" /> Change role
+                    </Button>
+                  )}
                   {w.active && (
                     <Button size="sm" variant="ghost" onClick={() => confirm(`Deactivate ${w.display_name}?`) && deactMut.mutate(w.user_id)}>
                       <UserX className="mr-1 h-4 w-4 text-destructive" /> Deactivate
@@ -248,7 +308,7 @@ function WorkersTab() {
               </tr>
             ))}
             {workers.length === 0 && (
-              <tr><td colSpan={4} className="p-12 text-center text-sm text-muted-foreground">No workers yet — add your first one</td></tr>
+              <tr><td colSpan={5} className="p-12 text-center text-sm text-muted-foreground">No workers yet — add your first one</td></tr>
             )}
           </tbody>
         </table>
@@ -260,15 +320,68 @@ function WorkersTab() {
           setOpen={setOpen}
           state={editing}
           onSave={async (vals) => {
-            await upsert({ data: vals });
+            const res: any = await upsert({ data: { email: vals.email, fullName: vals.fullName, workerId: vals.workerId, pin: vals.pin } });
+            if (vals.role && vals.mode === "create" && res?.userId) {
+              await setRole({ data: { workerId: res.userId, role: vals.role } });
+            }
             toast.success("Saved");
             setOpen(false);
             qc.invalidateQueries({ queryKey: ["workers_admin"] });
             qc.invalidateQueries({ queryKey: ["workers_public"] });
+            qc.invalidateQueries({ queryKey: ["worker_roles_admin"] });
           }}
         />
       )}
+
+      {roleEditing && (
+        <Dialog open={!!roleEditing} onOpenChange={(o) => !o && setRoleEditing(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle className="font-display">Change role — {roleEditing.name}</DialogTitle></DialogHeader>
+            <div className="space-y-3 py-2">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <input
+                  type="radio"
+                  name="role"
+                  className="mt-1"
+                  checked={roleEditing.role === "manager"}
+                  onChange={() => setRoleEditing({ ...roleEditing, role: "manager" })}
+                />
+                <div>
+                  <div className="font-medium">Manager</div>
+                  <div className="text-xs text-muted-foreground">Can use POS plus edit catalog, customers, memberships, view reports — configurable in the Roles & Permissions tab.</div>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-muted/40">
+                <input
+                  type="radio"
+                  name="role"
+                  className="mt-1"
+                  checked={roleEditing.role === "cashier"}
+                  onChange={() => setRoleEditing({ ...roleEditing, role: "cashier" })}
+                />
+                <div>
+                  <div className="font-medium">Cashier</div>
+                  <div className="text-xs text-muted-foreground">POS access only by default.</div>
+                </div>
+              </label>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRoleEditing(null)}>Cancel</Button>
+              <Button
+                onClick={() => roleMut.mutate({ workerId: roleEditing.workerId, role: roleEditing.role })}
+                disabled={roleMut.isPending}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                {roleMut.isPending ? "Saving…" : "Save role"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
+  );
+}
+
   );
 }
 
