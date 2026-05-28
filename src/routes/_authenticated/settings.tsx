@@ -382,13 +382,11 @@ function WorkersTab() {
   );
 }
 
-  );
-}
-
 function WorkerDialog({ open, setOpen, state, onSave }: { open: boolean; setOpen: (b: boolean) => void; state: any; onSave: (vals: any) => Promise<void> }) {
   const [email, setEmail] = useState(state.email ?? "");
   const [fullName, setFullName] = useState(state.fullName ?? "");
   const [pin, setPin] = useState("");
+  const [role, setRole] = useState<"manager" | "cashier">(state.role ?? "cashier");
   const [busy, setBusy] = useState(false);
   const isCreate = state.mode === "create";
 
@@ -398,8 +396,8 @@ function WorkerDialog({ open, setOpen, state, onSave }: { open: boolean; setOpen
     setBusy(true);
     try {
       await onSave(isCreate
-        ? { email, fullName, pin }
-        : { workerId: state.workerId, fullName: state.fullName, pin });
+        ? { mode: "create", email, fullName, pin, role }
+        : { mode: "reset", workerId: state.workerId, fullName: state.fullName, pin });
     } catch (e: any) {
       toast.error(e?.message ?? "Failed");
     } finally { setBusy(false); }
@@ -414,6 +412,16 @@ function WorkerDialog({ open, setOpen, state, onSave }: { open: boolean; setOpen
             <>
               <Field label="Full name"><Input value={fullName} onChange={(e) => setFullName(e.target.value)} /></Field>
               <Field label="Email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="worker@example.com" /></Field>
+              <Field label="Role">
+                <select
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as any)}
+                >
+                  <option value="cashier">Cashier (POS only)</option>
+                  <option value="manager">Manager (POS + catalog + reports)</option>
+                </select>
+              </Field>
             </>
           )}
           <Field label="4-digit PIN">
@@ -431,6 +439,142 @@ function WorkerDialog({ open, setOpen, state, onSave }: { open: boolean; setOpen
     </Dialog>
   );
 }
+
+/* ─────────────────────────── PERMISSIONS ─────────────────────────── */
+
+type PermDef = { key: string; label: string };
+type PermGroup = { group: string; perms: PermDef[] };
+
+const PERMISSION_GROUPS: PermGroup[] = [
+  { group: "POS", perms: [
+    { key: "pos.use", label: "Use POS / take payments" },
+    { key: "pos.refund", label: "Process refunds" },
+    { key: "giftcards.sell", label: "Sell gift cards" },
+  ]},
+  { group: "Catalog", perms: [
+    { key: "services.edit", label: "Add / edit services" },
+    { key: "categories.edit", label: "Edit categories" },
+  ]},
+  { group: "Customers", perms: [
+    { key: "customers.view", label: "View customers" },
+    { key: "customers.edit", label: "Edit customers" },
+    { key: "customers.delete", label: "Delete customers" },
+  ]},
+  { group: "Memberships", perms: [
+    { key: "memberships.view", label: "View memberships" },
+    { key: "memberships.manage", label: "Sell & manage memberships" },
+  ]},
+  { group: "Reports", perms: [
+    { key: "reports.view", label: "View reports" },
+    { key: "reports.export", label: "Export reports" },
+  ]},
+  { group: "Shifts", perms: [
+    { key: "shifts.view", label: "View own shifts" },
+    { key: "shifts.edit", label: "Edit shifts" },
+  ]},
+];
+
+function PermissionsTab() {
+  const qc = useQueryClient();
+  const save = useServerFn(setRolePermissions);
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["role_permissions_admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("role_permissions")
+        .select("role, permission_key, allowed");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const initial = (role: "manager" | "cashier") => {
+    const map: Record<string, boolean> = {};
+    for (const g of PERMISSION_GROUPS) for (const p of g.perms) map[p.key] = false;
+    for (const r of rows as any[]) if (r.role === role) map[r.permission_key] = !!r.allowed;
+    return map;
+  };
+
+  const [mgr, setMgr] = useState<Record<string, boolean>>({});
+  const [csh, setCsh] = useState<Record<string, boolean>>({});
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    if (!isLoading && !loaded) {
+      setMgr(initial("manager"));
+      setCsh(initial("cashier"));
+      setLoaded(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, rows]);
+
+  const saveMut = useMutation({
+    mutationFn: async (vars: { role: "manager" | "cashier"; permissions: Record<string, boolean> }) =>
+      save({ data: vars }),
+    onSuccess: () => {
+      toast.success("Permissions saved");
+      qc.invalidateQueries({ queryKey: ["role_permissions"] });
+      qc.invalidateQueries({ queryKey: ["role_permissions_admin"] });
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  if (isLoading || !loaded) return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+
+  const renderColumn = (
+    title: string,
+    state: Record<string, boolean>,
+    setState: (s: Record<string, boolean>) => void,
+    role: "manager" | "cashier",
+  ) => (
+    <Card className="border-border/60 shadow-soft">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <h3 className="font-display text-lg">{title}</h3>
+        <Button
+          size="sm"
+          onClick={() => saveMut.mutate({ role, permissions: state })}
+          disabled={saveMut.isPending}
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          Save {title}
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {PERMISSION_GROUPS.map((g) => (
+          <div key={g.group}>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{g.group}</p>
+            <div className="space-y-2">
+              {g.perms.map((p) => (
+                <div key={p.key} className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                  <span className="text-sm">{p.label}</span>
+                  <Switch
+                    checked={!!state[p.key]}
+                    onCheckedChange={(v) => setState({ ...state, [p.key]: v })}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-border/60 bg-muted/30 shadow-soft">
+        <CardContent className="p-4 text-sm text-muted-foreground">
+          Toggle what each role can do in the app. <strong>Admins and Super Admins</strong> always have full access and aren't shown here.
+        </CardContent>
+      </Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        {renderColumn("Manager", mgr, setMgr, "manager")}
+        {renderColumn("Cashier", csh, setCsh, "cashier")}
+      </div>
+    </div>
+  );
+}
+
 
 /* ─────────────────────────── RECYCLE BIN ─────────────────────────── */
 
