@@ -17,8 +17,9 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, KeyRound, UserX, ExternalLink, Undo2, Trash2 } from "lucide-react";
-import { upsertWorkerPin, deactivateWorker } from "@/lib/worker-auth.functions";
+import { Plus, KeyRound, UserX, ExternalLink, Undo2, Trash2, Shield } from "lucide-react";
+import { upsertWorkerPin, deactivateWorker, setWorkerRole, listWorkerRoles, setRolePermissions } from "@/lib/worker-auth.functions";
+
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
