@@ -597,6 +597,30 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permissions: {
+        Row: {
+          allowed: boolean
+          id: string
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          allowed?: boolean
+          id?: string
+          permission_key: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          allowed?: boolean
+          id?: string
+          permission_key?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       service_categories: {
         Row: {
           active: boolean
