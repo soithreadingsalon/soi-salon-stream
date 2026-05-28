@@ -35,6 +35,7 @@ function SettingsPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold">Settings</h1>
         <p className="text-sm text-muted-foreground">Manage your business, workers, services and customers</p>
+      </div>
       <Tabs defaultValue="business">
         <TabsList className="flex-wrap bg-muted/40">
           <TabsTrigger value="business">Business</TabsTrigger>
@@ -55,7 +56,6 @@ function SettingsPage() {
         <TabsContent value="recycle"   className="pt-6"><RecycleBinTab /></TabsContent>
       </Tabs>
 
-      </Tabs>
     </div>
   );
 }
