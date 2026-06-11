@@ -619,6 +619,8 @@ export function PosClient() {
               tipPct={tipPct} setTipPct={setTipPct}
               tipPresets={tipPresets}
               tipCustom={tipCustom} setTipCustom={setTipCustom}
+              tipChoiceMade={tipChoiceMade} setTipChoiceMade={setTipChoiceMade}
+              tipMethod={tipMethod} setTipMethod={setTipMethod}
               loyalty={loyalty ?? null} maxRedeemable={maxRedeemable}
               pointsRedeem={pointsRedeem} setPointsRedeem={setPointsRedeem}
               canRedeemFree={!!customer && (loyalty?.free_eyebrow_credits ?? 0) > 0 && !cart.some((i) => i.is_free)}
