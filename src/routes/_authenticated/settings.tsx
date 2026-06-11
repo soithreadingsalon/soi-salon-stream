@@ -964,6 +964,8 @@ function ShiftsTab() {
       </CardContent>
     </Card>
   );
+}
+
 
 function SecurityTab() {
   const { hasRole } = useAuth();
