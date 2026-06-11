@@ -178,18 +178,39 @@ function ReportsPage() {
       m[key].orders += 1;
       m[key].total += tip;
       const pays = paymentByOrder.get(o.id) ?? [];
-      const payTotal = pays.reduce((s: number, p: any) => s + Number(p.amount), 0) || 1;
-      for (const p of pays) {
-        const share = tip * (Number(p.amount) / payTotal);
-        const k = (p.payment_method ?? p.method ?? "other") as string;
-        if (k === "cash") m[key].cash += share;
-        else if (k === "card") m[key].card += share;
-        else if (k === "zelle") m[key].zelle += share;
-        else m[key].other += share;
+      // Prefer explicit tip rows (external_reference === 'tip') when present.
+      const tipRows = pays.filter((p: any) => p.external_reference === "tip");
+      if (tipRows.length > 0) {
+        for (const p of tipRows) {
+          const k = (p.payment_method ?? p.method ?? "other") as string;
+          const amt = Number(p.amount);
+          if (k === "cash") m[key].cash += amt;
+          else if (k === "card") m[key].card += amt;
+          else if (k === "zelle") m[key].zelle += amt;
+          else m[key].other += amt;
+        }
+      } else {
+        // Legacy orders: split tip proportionally across payment rows.
+        const payTotal = pays.reduce((s: number, p: any) => s + Number(p.amount), 0) || 1;
+        for (const p of pays) {
+          const share = tip * (Number(p.amount) / payTotal);
+          const k = (p.payment_method ?? p.method ?? "other") as string;
+          if (k === "cash") m[key].cash += share;
+          else if (k === "card") m[key].card += share;
+          else if (k === "zelle") m[key].zelle += share;
+          else m[key].other += share;
+        }
       }
     }
     return Object.values(m).sort((a, b) => b.total - a.total);
   }, [completedOrders, cashiers, paymentByOrder]);
+
+  // No-tips-recorded health check
+  const noTipStats = useMemo(() => {
+    const n = completedOrders.length;
+    const zero = completedOrders.filter((o) => Number(o.tip_total) === 0).length;
+    return { n, zero, pct: n ? zero / n : 0 };
+  }, [completedOrders]);
 
   const totals = useMemo(() => {
     return completedOrders.reduce(
