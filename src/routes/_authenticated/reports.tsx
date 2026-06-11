@@ -84,7 +84,7 @@ function ReportsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payments")
-        .select("order_id, amount, method, payment_method, status")
+        .select("order_id, amount, method, payment_method, status, external_reference")
         .in("order_id", orderIds);
       if (error) throw error;
       return data ?? [];
@@ -178,18 +178,39 @@ function ReportsPage() {
       m[key].orders += 1;
       m[key].total += tip;
       const pays = paymentByOrder.get(o.id) ?? [];
-      const payTotal = pays.reduce((s: number, p: any) => s + Number(p.amount), 0) || 1;
-      for (const p of pays) {
-        const share = tip * (Number(p.amount) / payTotal);
-        const k = (p.payment_method ?? p.method ?? "other") as string;
-        if (k === "cash") m[key].cash += share;
-        else if (k === "card") m[key].card += share;
-        else if (k === "zelle") m[key].zelle += share;
-        else m[key].other += share;
+      // Prefer explicit tip rows (external_reference === 'tip') when present.
+      const tipRows = pays.filter((p: any) => p.external_reference === "tip");
+      if (tipRows.length > 0) {
+        for (const p of tipRows) {
+          const k = (p.payment_method ?? p.method ?? "other") as string;
+          const amt = Number(p.amount);
+          if (k === "cash") m[key].cash += amt;
+          else if (k === "card") m[key].card += amt;
+          else if (k === "zelle") m[key].zelle += amt;
+          else m[key].other += amt;
+        }
+      } else {
+        // Legacy orders: split tip proportionally across payment rows.
+        const payTotal = pays.reduce((s: number, p: any) => s + Number(p.amount), 0) || 1;
+        for (const p of pays) {
+          const share = tip * (Number(p.amount) / payTotal);
+          const k = (p.payment_method ?? p.method ?? "other") as string;
+          if (k === "cash") m[key].cash += share;
+          else if (k === "card") m[key].card += share;
+          else if (k === "zelle") m[key].zelle += share;
+          else m[key].other += share;
+        }
       }
     }
     return Object.values(m).sort((a, b) => b.total - a.total);
   }, [completedOrders, cashiers, paymentByOrder]);
+
+  // No-tips-recorded health check
+  const noTipStats = useMemo(() => {
+    const n = completedOrders.length;
+    const zero = completedOrders.filter((o) => Number(o.tip_total) === 0).length;
+    return { n, zero, pct: n ? zero / n : 0 };
+  }, [completedOrders]);
 
   const totals = useMemo(() => {
     return completedOrders.reduce(
@@ -333,6 +354,19 @@ function ReportsPage() {
         <Kpi label="Discount given" value={fmt(kpis.totalDiscount)} />
         <Kpi label="Range" value={`${from} → ${to}`} small />
       </div>
+
+      {noTipStats.n > 0 && noTipStats.pct >= 0.5 && (
+        <div className="rounded-lg border-2 border-amber-500/60 bg-amber-50/60 px-4 py-3 text-sm dark:bg-amber-500/10 print:hidden">
+          <p className="font-display font-semibold text-amber-700 dark:text-amber-400">
+            No tips recorded on {noTipStats.zero} of {noTipStats.n} orders
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Staff must pick a tip amount (or "No tip") at checkout. The tip section in the cart is now required before charging.
+          </p>
+        </div>
+      )}
+
+
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-border/60 shadow-soft">
