@@ -37,13 +37,20 @@ function ReportsPage() {
   if (loading || (user && rolesLoading)) return <div className="p-8">Loading…</div>;
   if (!hasRole("super_admin", "admin", "manager")) return <Navigate to="/dashboard" />;
 
+  const { hasRole, loading, rolesLoading, user } = useAuth();
+  if (loading || (user && rolesLoading)) return <div className="p-8">Loading…</div>;
+  if (!hasRole("super_admin", "admin", "manager")) return <Navigate to="/dashboard" />;
+  const isAdmin = hasRole("super_admin", "admin");
+
   const [from, setFrom] = useState(daysAgoISO(7));
   const [to, setTo] = useState(todayISO());
   const [method, setMethod] = useState<string>("all");
   const [cashierId, setCashierId] = useState<string>("all");
+  const [editing, setEditing] = useState<{ id: string; number: any } | null>(null);
 
   const fromIso = `${from}T00:00:00`;
   const toIso = `${to}T23:59:59`;
+
 
   const { data: cashiers = [] } = useQuery({
     queryKey: ["cashiers_list"],
