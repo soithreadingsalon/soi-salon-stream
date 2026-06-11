@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Download, Printer, BarChart3, FileSpreadsheet } from "lucide-react";
+import { Download, Printer, BarChart3, FileSpreadsheet, Pencil } from "lucide-react";
 import { downloadExcelReport, downloadCsvOrders } from "@/lib/reportExport";
+import { EditPaymentDialog } from "./-reports/EditPaymentDialog";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   component: ReportsPage,
 });
+
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
