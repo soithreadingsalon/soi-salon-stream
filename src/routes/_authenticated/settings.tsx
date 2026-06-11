@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { Plus, KeyRound, UserX, ExternalLink, Undo2, Trash2, Shield } from "lucide-react";
 import { upsertWorkerPin, deactivateWorker, setWorkerRole, listWorkerRoles, setRolePermissions } from "@/lib/worker-auth.functions";
+import { hasOverridePin, setOverridePin } from "@/lib/admin-overrides.functions";
 
 
 export const Route = createFileRoute("/_authenticated/settings")({
