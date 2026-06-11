@@ -901,15 +901,22 @@ function CartPanel({
                 className="mt-1.5 h-11 text-base" placeholder="0.00" />
             </div>
 
-            {/* Tip */}
-            <div>
-              <Label className="text-sm font-semibold">Tip</Label>
+            {/* Tip — REQUIRED before charging */}
+            <div className={`rounded-lg border-2 p-2 ${tipChoiceMade ? "border-border" : "border-amber-500/70 bg-amber-50/40 dark:bg-amber-500/5"}`}>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold">Tip {tipChoiceMade ? "" : <span className="text-amber-600">(required)</span>}</Label>
+                {tipChoiceMade && (
+                  <span className="text-xs text-muted-foreground">
+                    {tip > 0 ? `${fmt(tip)} selected` : "No tip"}
+                  </span>
+                )}
+              </div>
               <div className={`mt-1.5 grid gap-1.5 ${(tipPresets as number[]).length >= 4 ? "grid-cols-4" : (tipPresets as number[]).length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
                 {(tipPresets as number[]).map((p) => {
                   const active = tipPct === p && tipCustom === 0;
                   return (
                     <button key={p}
-                      onClick={() => { setTipCustom(0); setTipPct(active ? null : p); }}
+                      onClick={() => { setTipCustom(0); setTipPct(active ? null : p); setTipChoiceMade(true); }}
                       className={`rounded-lg border-2 p-2 text-center transition active:scale-95 ${
                         active ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
                       }`}>
@@ -921,10 +928,34 @@ function CartPanel({
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <Input type="number" min="0" step="0.01" value={tipCustom || ""}
-                  onChange={(e) => { const v = Number(e.target.value) || 0; setTipCustom(v); if (v > 0) setTipPct(null); }}
+                  onChange={(e) => { const v = Number(e.target.value) || 0; setTipCustom(v); if (v > 0) { setTipPct(null); setTipChoiceMade(true); } }}
                   placeholder="Custom $" className="h-10 text-base" />
-                <Button variant="outline" size="sm" onClick={() => { setTipCustom(0); setTipPct(null); }}>No tip</Button>
+                <Button variant="outline" size="sm" onClick={() => { setTipCustom(0); setTipPct(null); setTipChoiceMade(true); setTipMethod(null); }}>No tip</Button>
               </div>
+
+              {/* Tip paid by — only when there IS a tip */}
+              {tip > 0 && (
+                <div className="mt-2">
+                  <Label className="text-xs text-muted-foreground">Tip paid by</Label>
+                  <div className="mt-1 grid grid-cols-3 gap-1.5">
+                    {(["cash","card","zelle"] as PayMethod[]).map((m) => {
+                      const active = tipMethod === m;
+                      return (
+                        <button key={m}
+                          onClick={() => setTipMethod(m)}
+                          className={`rounded-md border-2 px-2 py-1.5 text-xs font-medium capitalize transition active:scale-95 ${
+                            active ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
+                          }`}>
+                          {m}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!tipMethod && (
+                    <p className="mt-1 text-[11px] text-amber-600">Pick how the tip was paid</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -942,10 +973,16 @@ function CartPanel({
             <span className="font-display text-3xl font-semibold">{fmt(grandTotal)}</span>
           </div>
         </div>
-        <Button size="lg" disabled={cart.length === 0}
+        <Button size="lg" disabled={cart.length === 0 || !tipChoiceMade || (tip > 0 && !tipMethod)}
           onClick={onCharge}
           className="mt-3 h-16 w-full bg-primary text-xl font-semibold text-primary-foreground hover:bg-primary/90">
-          Charge {fmt(grandTotal)}
+          {cart.length === 0
+            ? `Charge ${fmt(grandTotal)}`
+            : !tipChoiceMade
+              ? "Choose tip to continue"
+              : tip > 0 && !tipMethod
+                ? "Pick how tip was paid"
+                : `Charge ${fmt(grandTotal)}`}
         </Button>
       </div>
     </>
