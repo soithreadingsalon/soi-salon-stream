@@ -1,70 +1,56 @@
-# Worker roles & per-role permissions
+## 1. Admin: edit a completed order's payment method (PIN-gated)
 
-Add to Settings → Workers so admins can assign Manager vs Cashier roles, plus a new Roles & Permissions screen to toggle individual capabilities per role.
+**Use case:** A cashier accidentally rang a sale as Card when it was Cash. An admin opens the order from Reports → Orders, hits "Edit payment", enters the override PIN, and switches the method (cash / card / zelle). Works for orders with a single payment row (most common). For split-payment orders we show the rows and let admin change the method of each.
 
-## 1. Database
+**Where:**
+- Reports → Orders table: add a small "Edit payment" button on each row (admin / super_admin only).
+- Opens a dialog showing each payment row with a method dropdown (Cash / Card / Zelle / Other) and a PIN input.
+- On save: server fn verifies PIN against the stored hash in `business_settings`, updates `payments.method` + `payments.payment_method`, writes an `audit_logs` entry (who, when, before/after) so nothing is lost silently.
 
-New table `role_permissions` storing one row per (role, permission_key):
+**PIN storage (per your choice):** new fields on `business_settings`: `override_pin_hash`, `override_pin_salt`. Seeded once with `1987`. Settings → new "Security" card with "Change override PIN" (admin-only). PIN itself is never returned to the client — only a "PIN is set" indicator.
 
-- `role` — app_role enum (manager, cashier)
-- `permission_key` — text, e.g. `services.edit`, `reports.view`, `customers.edit`, `memberships.manage`, `pos.refund`, `pos.use`, `giftcards.sell`, `workers.clock`, etc.
-- `allowed` — boolean
+## 2. Tips by therapist in Reports
 
-Seed sensible defaults (Manager gets most, Cashier gets POS-only).
+The logged-in cashier IS the therapist (existing `orders.cashier_id`). Today Reports only shows one global Tips KPI. Adding:
 
-RLS:
-- Read: all authenticated users (each user needs to know their own permissions).
-- Write: super_admin + admin only.
+- New **"Tips by therapist"** card on Reports: therapist name · # tipped orders · cash tips · card tips · zelle tips · total tips. Respects the existing date / cashier / method filters.
+- New **Discount** column in the Orders table (currently missing) and Discount totals row at the bottom.
+- Tips column already exists — adding a totals footer row (Subtotal / Discount / Tax / Tip / Total) so the numbers tie out at a glance.
+- Excel/CSV export gains a "Tips by therapist" sheet and the Discount column on the orders sheet.
 
-Plus a SECURITY DEFINER helper `has_permission(_user_id uuid, _key text)` that returns true if the user is super_admin/admin (always allowed) OR any of their roles has `allowed=true` for that key. Use it later if we want to harden RLS per-permission; not required for v1.
+No POS changes needed — therapists already enter tips at checkout; we're surfacing the data correctly.
 
-Data preservation: all changes are additive (new table only). No existing row is touched.
+## 3. Consistent typography
 
-## 2. Server functions (`src/lib/worker-auth.functions.ts`)
+Audit and align all pages to the project's two-font system already defined in `src/styles.css` (display font for headings, sans for body). One-off offenders (Reports, Settings, Workers, Memberships, POS dialogs) currently mix raw `text-*` weights without `font-display` on headers, and a couple use the browser default. I'll:
 
-Add admin-gated server functions:
+- Sweep every route and ensure every `<h1>/<h2>/<h3>` uses `font-display` and consistent sizes (`text-3xl` / `text-xl` / `text-base`).
+- Remove ad-hoc `style={{ fontFamily: ... }}` where present.
+- Confirm `body` in `styles.css` sets the body font on `*` and that print styles inherit it.
 
-- `setWorkerRole({ workerId, role: 'manager' | 'cashier' })` — replaces non-admin roles in `user_roles` for that user with the chosen role (never touches super_admin/admin rows).
-- `listWorkerRoles()` — returns `{ user_id, role }[]` so the Workers table can show each person's role.
-- `setRolePermissions({ role, permissions: Record<string, boolean> })` — upserts toggles into `role_permissions`.
-- `listRolePermissions()` — returns current toggles for manager + cashier.
+## Data-loss guarantee
 
-All gated by `has_any_role(super_admin, admin)`.
+All changes are additive:
+- Migration adds columns to `business_settings` and (if needed) inserts a default PIN row — no data dropped.
+- Payment-method edits go through an audited UPDATE; the original method is captured in `audit_logs`.
+- No table is dropped, renamed, or truncated.
 
-## 3. UI — Settings page
+## Technical details
 
-**Workers tab**
-- Add a "Role" column to the workers table showing `Manager` / `Cashier` badge.
-- Add a `Change role` action button per row (next to Reset PIN). Opens a small dialog with a Manager/Cashier radio, saves via `setWorkerRole`.
-- "Add worker" dialog: add a Role selector (defaults to Cashier).
-- Reset PIN dialog stays exactly as it is.
+**Migration**
+- `business_settings`: add `override_pin_hash text`, `override_pin_salt text`. Seed by hashing `1987` for the existing row.
+- No new tables. `audit_logs` already exists.
 
-**New "Roles & Permissions" tab** (admin-only)
-- Two columns: Manager | Cashier.
-- Grouped permission toggles:
-  - POS: use POS, process refunds, sell gift cards
-  - Catalog: edit services, edit categories
-  - Customers: view, edit, delete
-  - Memberships: view, manage
-  - Reports: view, export
-  - Workers: view shifts, edit shifts
-- "Save changes" button per role.
-- Note that super_admin / admin always have full access and can't be edited here.
+**Server fns (`src/lib/admin-overrides.functions.ts`, new)**
+- `setOverridePin({ newPin })` — admin only.
+- `hasOverridePin()` — returns boolean for UI.
+- `updateOrderPaymentMethod({ orderId, paymentId, newMethod, pin })` — verifies admin role + PIN, updates row, writes audit log. Uses `supabaseAdmin` loaded inside the handler.
 
-## 4. Client-side enforcement
+**UI**
+- `src/routes/_authenticated/reports.tsx`: add Discount column + totals row, "Tips by therapist" card, "Edit payment" button + dialog.
+- `src/routes/_authenticated/settings.tsx`: new "Security" card with override-PIN management (admin-only).
+- Typography sweep across route files and shared components.
 
-- Add `usePermissions()` hook that loads `role_permissions` once per session, combined with the user's roles, exposing `can(key)`.
-- Update `AppSidebar.tsx` — replace hard-coded `roles: [...]` arrays with permission keys so links auto-hide for users without that permission.
-- Sprinkle `can('services.edit')`, `can('reports.view')`, etc. on key actions (edit/delete buttons, Reports route guard).
-
-RLS on the underlying tables stays as the real security boundary (already loosened for managers in the last migration). The permission system is the UX layer that decides which controls to show.
-
-## 5. Data-loss prevention (general)
-
-Migrations only change structure; rows are preserved across deploys. The only destructive actions in the app are explicit, admin-gated: soft-delete (recoverable from Recycle Bin), hard-delete RPCs, and "Reset to Official Menu" on the Services page. No code change deletes production data on push.
-
-## Technical notes
-
-- File touches: new migration; `src/lib/worker-auth.functions.ts`; `src/routes/_authenticated/settings.tsx` (Workers tab + new Roles tab); new `src/hooks/use-permissions.tsx`; `src/components/AppSidebar.tsx`.
-- Role enum already has `manager` and `cashier`; no enum change needed.
-- New worker still defaults to `cashier` role via the existing `handle_new_user` trigger; `setWorkerRole` runs after creation to upgrade to manager if selected.
+**Files touched**
+- New: `supabase/migrations/<ts>_override_pin.sql`, `src/lib/admin-overrides.functions.ts`, `src/routes/_authenticated/-reports/EditPaymentDialog.tsx`.
+- Edited: `reports.tsx`, `settings.tsx`, `src/lib/reportExport.ts`, plus typography touch-ups across routes.

@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { Plus, KeyRound, UserX, ExternalLink, Undo2, Trash2, Shield } from "lucide-react";
 import { upsertWorkerPin, deactivateWorker, setWorkerRole, listWorkerRoles, setRolePermissions } from "@/lib/worker-auth.functions";
+import { hasOverridePin, setOverridePin } from "@/lib/admin-overrides.functions";
 
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -41,6 +42,7 @@ function SettingsPage() {
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="workers">Workers & PINs</TabsTrigger>
           <TabsTrigger value="permissions">Roles & Permissions</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="shifts">Shifts</TabsTrigger>
           <TabsTrigger value="catalog">Services</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
@@ -50,6 +52,7 @@ function SettingsPage() {
         <TabsContent value="business" className="pt-6"><BusinessTab /></TabsContent>
         <TabsContent value="workers"  className="pt-6"><WorkersTab /></TabsContent>
         <TabsContent value="permissions" className="pt-6"><PermissionsTab /></TabsContent>
+        <TabsContent value="security" className="pt-6"><SecurityTab /></TabsContent>
         <TabsContent value="shifts"   className="pt-6"><ShiftsTab /></TabsContent>
         <TabsContent value="catalog"  className="pt-6"><QuickLink to="/services" label="Open service catalog editor" /></TabsContent>
         <TabsContent value="customers" className="pt-6"><QuickLink to="/customers" label="Open customer directory" /></TabsContent>
@@ -962,3 +965,78 @@ function ShiftsTab() {
     </Card>
   );
 }
+
+
+function SecurityTab() {
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole("super_admin", "admin");
+  const checkPin = useServerFn(hasOverridePin);
+  const savePin = useServerFn(setOverridePin);
+  const qc = useQueryClient();
+
+  const { data: status } = useQuery({
+    queryKey: ["override_pin_status"],
+    queryFn: () => checkPin(),
+  });
+
+  const [newPin, setNewPin] = useState("");
+  const [confirm, setConfirm] = useState("");
+
+  const m = useMutation({
+    mutationFn: async () => {
+      if (newPin !== confirm) throw new Error("PINs do not match");
+      if (!/^\d{4,8}$/.test(newPin)) throw new Error("PIN must be 4–8 digits");
+      return savePin({ data: { newPin } });
+    },
+    onSuccess: () => {
+      toast.success("Override PIN updated");
+      setNewPin(""); setConfirm("");
+      qc.invalidateQueries({ queryKey: ["override_pin_status"] });
+    },
+    onError: (e: any) => toast.error(e.message ?? "Failed to update PIN"),
+  });
+
+  if (!isAdmin) {
+    return (
+      <Card className="border-border/60 shadow-soft">
+        <CardContent className="p-6 text-sm text-muted-foreground">
+          Only admins can manage security settings.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-border/60 shadow-soft">
+      <CardHeader>
+        <h2 className="font-display text-xl">Manager override PIN</h2>
+        <p className="text-sm text-muted-foreground">
+          Required when an admin edits a completed order's payment method (e.g. switch Card → Cash).
+          Status: {status?.configured ? "✅ configured" : "⚠️ not set"}
+        </p>
+      </CardHeader>
+      <CardContent className="grid max-w-md gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">New PIN (4–8 digits)</Label>
+          <Input
+            type="password" inputMode="numeric" pattern="\d*"
+            value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+            maxLength={8}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Confirm PIN</Label>
+          <Input
+            type="password" inputMode="numeric" pattern="\d*"
+            value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ""))}
+            maxLength={8}
+          />
+        </div>
+        <Button onClick={() => m.mutate()} disabled={m.isPending || !newPin || !confirm}>
+          {m.isPending ? "Saving…" : "Update PIN"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+

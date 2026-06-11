@@ -10,12 +10,14 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Download, Printer, BarChart3, FileSpreadsheet } from "lucide-react";
+import { Download, Printer, BarChart3, FileSpreadsheet, Pencil } from "lucide-react";
 import { downloadExcelReport, downloadCsvOrders } from "@/lib/reportExport";
+import { EditPaymentDialog } from "./-reports/EditPaymentDialog";
 
 export const Route = createFileRoute("/_authenticated/reports")({
   component: ReportsPage,
 });
+
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n || 0);
@@ -34,14 +36,17 @@ function ReportsPage() {
   const { hasRole, loading, rolesLoading, user } = useAuth();
   if (loading || (user && rolesLoading)) return <div className="p-8">Loading…</div>;
   if (!hasRole("super_admin", "admin", "manager")) return <Navigate to="/dashboard" />;
+  const isAdmin = hasRole("super_admin", "admin");
 
   const [from, setFrom] = useState(daysAgoISO(7));
   const [to, setTo] = useState(todayISO());
   const [method, setMethod] = useState<string>("all");
   const [cashierId, setCashierId] = useState<string>("all");
+  const [editing, setEditing] = useState<{ id: string; number: any } | null>(null);
 
   const fromIso = `${from}T00:00:00`;
   const toIso = `${to}T23:59:59`;
+
 
   const { data: cashiers = [] } = useQuery({
     queryKey: ["cashiers_list"],
@@ -159,6 +164,47 @@ function ReportsPage() {
       .slice(0, 15);
   }, [items, completedOrders]);
 
+  // Tips by therapist (cashier_id) broken down by payment method.
+  // Tip is allocated across that order's payment rows proportionally to amount.
+  const tipsByTherapist = useMemo(() => {
+    const m: Record<string, { name: string; orders: number; cash: number; card: number; zelle: number; other: number; total: number }> = {};
+    for (const o of completedOrders) {
+      const tip = Number(o.tip_total) || 0;
+      if (tip <= 0) continue;
+      const cashier = (cashiers as any[]).find((c) => c.id === o.cashier_id);
+      const key = o.cashier_id ?? "unknown";
+      const name = cashier?.full_name ?? cashier?.email ?? "Unassigned";
+      m[key] = m[key] ?? { name, orders: 0, cash: 0, card: 0, zelle: 0, other: 0, total: 0 };
+      m[key].orders += 1;
+      m[key].total += tip;
+      const pays = paymentByOrder.get(o.id) ?? [];
+      const payTotal = pays.reduce((s: number, p: any) => s + Number(p.amount), 0) || 1;
+      for (const p of pays) {
+        const share = tip * (Number(p.amount) / payTotal);
+        const k = (p.payment_method ?? p.method ?? "other") as string;
+        if (k === "cash") m[key].cash += share;
+        else if (k === "card") m[key].card += share;
+        else if (k === "zelle") m[key].zelle += share;
+        else m[key].other += share;
+      }
+    }
+    return Object.values(m).sort((a, b) => b.total - a.total);
+  }, [completedOrders, cashiers, paymentByOrder]);
+
+  const totals = useMemo(() => {
+    return completedOrders.reduce(
+      (acc, o) => ({
+        subtotal: acc.subtotal + Number(o.subtotal),
+        discount: acc.discount + Number(o.discount_total),
+        tax: acc.tax + Number(o.tax_total),
+        tip: acc.tip + Number(o.tip_total),
+        total: acc.total + Number(o.total),
+      }),
+      { subtotal: 0, discount: 0, tax: 0, tip: 0, total: 0 },
+    );
+  }, [completedOrders]);
+
+
   const buildOrderRows = () =>
     completedOrders.map((o) => {
       const pays = paymentByOrder.get(o.id) ?? [];
@@ -197,6 +243,12 @@ function ReportsPage() {
         orders: buildOrderRows(),
         byMethod: byMethod.map(([m, v]) => ({ Method: m, Count: v.count, Amount: v.amount })),
         topServices: topServices.map(([n, v]) => ({ Service: n, Qty: v.qty, Revenue: v.amount })),
+        tipsByTherapist: tipsByTherapist.map((t) => ({
+          Therapist: t.name, Orders: t.orders,
+          Cash: +t.cash.toFixed(2), Card: +t.card.toFixed(2),
+          Zelle: +t.zelle.toFixed(2), Other: +t.other.toFixed(2),
+          Total: +t.total.toFixed(2),
+        })),
       },
       `soi-report-${from}-to-${to}.xlsx`,
     );
@@ -331,6 +383,41 @@ function ReportsPage() {
       </div>
 
       <Card className="border-border/60 shadow-soft">
+        <CardHeader><h2 className="font-display text-lg">Tips by therapist</h2></CardHeader>
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="p-2 text-left">Therapist</th>
+                <th className="p-2 text-right">Orders</th>
+                <th className="p-2 text-right">Cash</th>
+                <th className="p-2 text-right">Card</th>
+                <th className="p-2 text-right">Zelle</th>
+                <th className="p-2 text-right">Other</th>
+                <th className="p-2 text-right">Total tips</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tipsByTherapist.map((t) => (
+                <tr key={t.name} className="border-t border-border">
+                  <td className="p-2">{t.name}</td>
+                  <td className="p-2 text-right">{t.orders}</td>
+                  <td className="p-2 text-right">{fmt(t.cash)}</td>
+                  <td className="p-2 text-right">{fmt(t.card)}</td>
+                  <td className="p-2 text-right">{fmt(t.zelle)}</td>
+                  <td className="p-2 text-right">{fmt(t.other)}</td>
+                  <td className="p-2 text-right font-semibold text-gold">{fmt(t.total)}</td>
+                </tr>
+              ))}
+              {tipsByTherapist.length === 0 && (
+                <tr><td colSpan={7} className="p-6 text-center text-xs text-muted-foreground">No tips in this range</td></tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/60 shadow-soft">
         <CardHeader><h2 className="font-display text-lg">Orders ({completedOrders.length})</h2></CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
@@ -340,15 +427,17 @@ function ReportsPage() {
                 <th className="p-2 text-left">Date</th>
                 <th className="p-2 text-left">Cashier</th>
                 <th className="p-2 text-right">Subtotal</th>
+                <th className="p-2 text-right">Discount</th>
                 <th className="p-2 text-right">Tax</th>
                 <th className="p-2 text-right">Tip</th>
                 <th className="p-2 text-right">Total</th>
                 <th className="p-2 text-left">Methods</th>
+                {isAdmin && <th className="p-2 print:hidden"></th>}
               </tr>
             </thead>
             <tbody>
               {isLoading && (
-                <tr><td colSpan={8} className="p-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
+                <tr><td colSpan={isAdmin ? 10 : 9} className="p-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
               )}
               {completedOrders.map((o) => {
                 const pays = paymentByOrder.get(o.id) ?? [];
@@ -361,25 +450,55 @@ function ReportsPage() {
                     </td>
                     <td className="p-2 text-muted-foreground">{cashier?.full_name ?? cashier?.email ?? "—"}</td>
                     <td className="p-2 text-right">{fmt(Number(o.subtotal))}</td>
+                    <td className="p-2 text-right">{Number(o.discount_total) > 0 ? `−${fmt(Number(o.discount_total))}` : "—"}</td>
                     <td className="p-2 text-right">{fmt(Number(o.tax_total))}</td>
                     <td className="p-2 text-right">{fmt(Number(o.tip_total))}</td>
                     <td className="p-2 text-right font-semibold text-gold">{fmt(Number(o.total))}</td>
                     <td className="p-2 text-xs uppercase text-muted-foreground">
                       {pays.map((p: any) => p.payment_method ?? p.method).join(", ")}
                     </td>
+                    {isAdmin && (
+                      <td className="p-2 text-right print:hidden">
+                        <Button size="sm" variant="ghost" onClick={() => setEditing({ id: o.id, number: o.order_number })}>
+                          <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
               {!isLoading && completedOrders.length === 0 && (
-                <tr><td colSpan={8} className="p-8 text-center text-xs text-muted-foreground">No orders match these filters</td></tr>
+                <tr><td colSpan={isAdmin ? 10 : 9} className="p-8 text-center text-xs text-muted-foreground">No orders match these filters</td></tr>
               )}
             </tbody>
+            {completedOrders.length > 0 && (
+              <tfoot className="bg-muted/30 text-sm font-semibold">
+                <tr className="border-t-2 border-border">
+                  <td className="p-2" colSpan={3}>Totals</td>
+                  <td className="p-2 text-right">{fmt(totals.subtotal)}</td>
+                  <td className="p-2 text-right">{totals.discount > 0 ? `−${fmt(totals.discount)}` : "—"}</td>
+                  <td className="p-2 text-right">{fmt(totals.tax)}</td>
+                  <td className="p-2 text-right">{fmt(totals.tip)}</td>
+                  <td className="p-2 text-right text-gold">{fmt(totals.total)}</td>
+                  <td className="p-2"></td>
+                  {isAdmin && <td className="p-2 print:hidden"></td>}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </CardContent>
       </Card>
+
+      <EditPaymentDialog
+        open={!!editing}
+        onOpenChange={(v) => { if (!v) setEditing(null); }}
+        orderId={editing?.id ?? null}
+        orderNumber={editing?.number}
+      />
     </div>
   );
 }
+
 
 function Kpi({ label, value, sub, small }: { label: string; value: string; sub?: string; small?: boolean }) {
   return (

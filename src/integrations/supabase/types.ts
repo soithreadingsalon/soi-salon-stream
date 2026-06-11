@@ -60,6 +60,8 @@ export type Database = {
           id: string
           instagram: string | null
           logo_url: string | null
+          override_pin_hash: string | null
+          override_pin_salt: string | null
           phone: string | null
           receipt_footer: string | null
           refund_policy: string | null
@@ -84,6 +86,8 @@ export type Database = {
           id?: string
           instagram?: string | null
           logo_url?: string | null
+          override_pin_hash?: string | null
+          override_pin_salt?: string | null
           phone?: string | null
           receipt_footer?: string | null
           refund_policy?: string | null
@@ -108,6 +112,8 @@ export type Database = {
           id?: string
           instagram?: string | null
           logo_url?: string | null
+          override_pin_hash?: string | null
+          override_pin_salt?: string | null
           phone?: string | null
           receipt_footer?: string | null
           refund_policy?: string | null

@@ -10,6 +10,7 @@ export type ReportData = {
   orders: Array<Record<string, string | number>>;
   byMethod: Array<Record<string, string | number>>;
   topServices: Array<Record<string, string | number>>;
+  tipsByTherapist?: Array<Record<string, string | number>>;
 };
 
 const MONEY_FMT = '"$"#,##0.00;[Red]("$"#,##0.00)';
@@ -80,6 +81,13 @@ export function downloadExcelReport(data: ReportData, filename: string) {
     const rows = [headers, ...data.topServices.map((o) => headers.map((h) => o[h]))];
     const moneyCols = headers.map((h, i) => (/amount|revenue/i.test(h) ? i : -1)).filter((i) => i >= 0);
     XLSX.utils.book_append_sheet(wb, aoaSheet(rows, moneyCols), "Top Services");
+  }
+
+  if (data.tipsByTherapist && data.tipsByTherapist.length) {
+    const headers = Object.keys(data.tipsByTherapist[0]);
+    const rows = [headers, ...data.tipsByTherapist.map((o) => headers.map((h) => o[h]))];
+    const moneyCols = headers.map((h, i) => (/cash|card|zelle|other|total|tip/i.test(h) ? i : -1)).filter((i) => i >= 0);
+    XLSX.utils.book_append_sheet(wb, aoaSheet(rows, moneyCols), "Tips by Therapist");
   }
 
   XLSX.writeFile(wb, filename);
