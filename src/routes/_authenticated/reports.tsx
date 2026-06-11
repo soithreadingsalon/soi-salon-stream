@@ -84,7 +84,7 @@ function ReportsPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("payments")
-        .select("order_id, amount, method, payment_method, status")
+        .select("order_id, amount, method, payment_method, status, external_reference")
         .in("order_id", orderIds);
       if (error) throw error;
       return data ?? [];
