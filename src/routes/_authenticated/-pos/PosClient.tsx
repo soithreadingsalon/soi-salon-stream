@@ -371,11 +371,13 @@ export function PosClient() {
         drawerStatus = await openCashDrawer(settings as any);
       }
 
+      // Main payment row covers everything except the tip; tip becomes its own row.
+      const mainAmount = +(grandTotal - tip).toFixed(2);
       const { error: pErr } = await supabase.from("payments").insert({
         order_id: order.id,
         method: method === "zelle" ? "other" : method,
         payment_method: method,
-        amount: grandTotal,
+        amount: mainAmount,
         status: "succeeded",
         cash_drawer_status: drawerStatus,
         created_by: user!.id,
@@ -385,6 +387,21 @@ export function PosClient() {
           : {}),
       } as any);
       if (pErr) throw pErr;
+
+      if (tip > 0) {
+        const tm: PayMethod = tipMethod ?? method;
+        const { error: tErr } = await supabase.from("payments").insert({
+          order_id: order.id,
+          method: tm === "zelle" ? "other" : tm,
+          payment_method: tm,
+          amount: tip,
+          status: "succeeded",
+          cash_drawer_status: "not_applicable",
+          created_by: user!.id,
+          external_reference: "tip",
+        } as any);
+        if (tErr) throw tErr;
+      }
 
       if (method === "cash" && drawerStatus === "failed") {
         toast.warning("Transaction saved — cash drawer did not open. Please open manually.");
