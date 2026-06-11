@@ -164,6 +164,47 @@ function ReportsPage() {
       .slice(0, 15);
   }, [items, completedOrders]);
 
+  // Tips by therapist (cashier_id) broken down by payment method.
+  // Tip is allocated across that order's payment rows proportionally to amount.
+  const tipsByTherapist = useMemo(() => {
+    const m: Record<string, { name: string; orders: number; cash: number; card: number; zelle: number; other: number; total: number }> = {};
+    for (const o of completedOrders) {
+      const tip = Number(o.tip_total) || 0;
+      if (tip <= 0) continue;
+      const cashier = (cashiers as any[]).find((c) => c.id === o.cashier_id);
+      const key = o.cashier_id ?? "unknown";
+      const name = cashier?.full_name ?? cashier?.email ?? "Unassigned";
+      m[key] = m[key] ?? { name, orders: 0, cash: 0, card: 0, zelle: 0, other: 0, total: 0 };
+      m[key].orders += 1;
+      m[key].total += tip;
+      const pays = paymentByOrder.get(o.id) ?? [];
+      const payTotal = pays.reduce((s: number, p: any) => s + Number(p.amount), 0) || 1;
+      for (const p of pays) {
+        const share = tip * (Number(p.amount) / payTotal);
+        const k = (p.payment_method ?? p.method ?? "other") as string;
+        if (k === "cash") m[key].cash += share;
+        else if (k === "card") m[key].card += share;
+        else if (k === "zelle") m[key].zelle += share;
+        else m[key].other += share;
+      }
+    }
+    return Object.values(m).sort((a, b) => b.total - a.total);
+  }, [completedOrders, cashiers, paymentByOrder]);
+
+  const totals = useMemo(() => {
+    return completedOrders.reduce(
+      (acc, o) => ({
+        subtotal: acc.subtotal + Number(o.subtotal),
+        discount: acc.discount + Number(o.discount_total),
+        tax: acc.tax + Number(o.tax_total),
+        tip: acc.tip + Number(o.tip_total),
+        total: acc.total + Number(o.total),
+      }),
+      { subtotal: 0, discount: 0, tax: 0, tip: 0, total: 0 },
+    );
+  }, [completedOrders]);
+
+
   const buildOrderRows = () =>
     completedOrders.map((o) => {
       const pays = paymentByOrder.get(o.id) ?? [];
