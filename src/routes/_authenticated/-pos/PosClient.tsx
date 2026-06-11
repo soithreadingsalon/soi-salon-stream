@@ -304,6 +304,7 @@ export function PosClient() {
   const resetCheckoutState = () => {
     setDiscount(0); setPointsRedeem(0);
     setTipPct(null); setTipCustom(0);
+    setTipChoiceMade(false); setTipMethod(null);
   };
 
   const maxRedeemable = loyalty
