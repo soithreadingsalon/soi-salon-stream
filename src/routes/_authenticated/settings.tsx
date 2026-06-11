@@ -41,6 +41,7 @@ function SettingsPage() {
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="workers">Workers & PINs</TabsTrigger>
           <TabsTrigger value="permissions">Roles & Permissions</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="shifts">Shifts</TabsTrigger>
           <TabsTrigger value="catalog">Services</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
@@ -50,6 +51,7 @@ function SettingsPage() {
         <TabsContent value="business" className="pt-6"><BusinessTab /></TabsContent>
         <TabsContent value="workers"  className="pt-6"><WorkersTab /></TabsContent>
         <TabsContent value="permissions" className="pt-6"><PermissionsTab /></TabsContent>
+        <TabsContent value="security" className="pt-6"><SecurityTab /></TabsContent>
         <TabsContent value="shifts"   className="pt-6"><ShiftsTab /></TabsContent>
         <TabsContent value="catalog"  className="pt-6"><QuickLink to="/services" label="Open service catalog editor" /></TabsContent>
         <TabsContent value="customers" className="pt-6"><QuickLink to="/customers" label="Open customer directory" /></TabsContent>
