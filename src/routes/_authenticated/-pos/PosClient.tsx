@@ -78,6 +78,8 @@ export function PosClient() {
   const [pointsRedeem, setPointsRedeem] = useState(0);
   const [tipPct, setTipPct] = useState<number | null>(null);
   const [tipCustom, setTipCustom] = useState(0);
+  const [tipChoiceMade, setTipChoiceMade] = useState(false);
+  const [tipMethod, setTipMethod] = useState<PayMethod | null>(null);
 
   const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null);
   const [custDialog, setCustDialog] = useState(false);
