@@ -83,7 +83,13 @@ export function downloadExcelReport(data: ReportData, filename: string) {
     XLSX.utils.book_append_sheet(wb, aoaSheet(rows, moneyCols), "Top Services");
   }
 
-  XLSX.writeFile(wb, filename);
+  if (data.tipsByTherapist && data.tipsByTherapist.length) {
+    const headers = Object.keys(data.tipsByTherapist[0]);
+    const rows = [headers, ...data.tipsByTherapist.map((o) => headers.map((h) => o[h]))];
+    const moneyCols = headers.map((h, i) => (/cash|card|zelle|other|total|tip/i.test(h) ? i : -1)).filter((i) => i >= 0);
+    XLSX.utils.book_append_sheet(wb, aoaSheet(rows, moneyCols), "Tips by Therapist");
+  }
+
 }
 
 export function downloadCsvOrders(orders: Array<Record<string, any>>, filename: string) {
