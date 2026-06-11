@@ -10,6 +10,7 @@ export type ReportData = {
   orders: Array<Record<string, string | number>>;
   byMethod: Array<Record<string, string | number>>;
   topServices: Array<Record<string, string | number>>;
+  tipsByTherapist?: Array<Record<string, string | number>>;
 };
 
 const MONEY_FMT = '"$"#,##0.00;[Red]("$"#,##0.00)';
