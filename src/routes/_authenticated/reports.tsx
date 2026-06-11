@@ -243,6 +243,12 @@ function ReportsPage() {
         orders: buildOrderRows(),
         byMethod: byMethod.map(([m, v]) => ({ Method: m, Count: v.count, Amount: v.amount })),
         topServices: topServices.map(([n, v]) => ({ Service: n, Qty: v.qty, Revenue: v.amount })),
+        tipsByTherapist: tipsByTherapist.map((t) => ({
+          Therapist: t.name, Orders: t.orders,
+          Cash: +t.cash.toFixed(2), Card: +t.card.toFixed(2),
+          Zelle: +t.zelle.toFixed(2), Other: +t.other.toFixed(2),
+          Total: +t.total.toFixed(2),
+        })),
       },
       `soi-report-${from}-to-${to}.xlsx`,
     );
