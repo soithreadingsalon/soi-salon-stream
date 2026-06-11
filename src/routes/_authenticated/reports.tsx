@@ -36,10 +36,6 @@ function ReportsPage() {
   const { hasRole, loading, rolesLoading, user } = useAuth();
   if (loading || (user && rolesLoading)) return <div className="p-8">Loading…</div>;
   if (!hasRole("super_admin", "admin", "manager")) return <Navigate to="/dashboard" />;
-
-  const { hasRole, loading, rolesLoading, user } = useAuth();
-  if (loading || (user && rolesLoading)) return <div className="p-8">Loading…</div>;
-  if (!hasRole("super_admin", "admin", "manager")) return <Navigate to="/dashboard" />;
   const isAdmin = hasRole("super_admin", "admin");
 
   const [from, setFrom] = useState(daysAgoISO(7));
