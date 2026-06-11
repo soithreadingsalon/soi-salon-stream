@@ -90,6 +90,7 @@ export function downloadExcelReport(data: ReportData, filename: string) {
     XLSX.utils.book_append_sheet(wb, aoaSheet(rows, moneyCols), "Tips by Therapist");
   }
 
+  XLSX.writeFile(wb, filename);
 }
 
 export function downloadCsvOrders(orders: Array<Record<string, any>>, filename: string) {
