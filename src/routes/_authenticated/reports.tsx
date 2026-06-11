@@ -355,6 +355,19 @@ function ReportsPage() {
         <Kpi label="Range" value={`${from} → ${to}`} small />
       </div>
 
+      {noTipStats.n > 0 && noTipStats.pct >= 0.5 && (
+        <div className="rounded-lg border-2 border-amber-500/60 bg-amber-50/60 px-4 py-3 text-sm dark:bg-amber-500/10 print:hidden">
+          <p className="font-display font-semibold text-amber-700 dark:text-amber-400">
+            No tips recorded on {noTipStats.zero} of {noTipStats.n} orders
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Staff must pick a tip amount (or "No tip") at checkout. The tip section in the cart is now required before charging.
+          </p>
+        </div>
+      )}
+
+
+
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-border/60 shadow-soft">
           <CardHeader><h2 className="font-display text-lg">Payments by method</h2></CardHeader>
