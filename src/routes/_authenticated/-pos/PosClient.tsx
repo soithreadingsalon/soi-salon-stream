@@ -374,6 +374,7 @@ export function PosClient() {
 
       // Main payment row covers everything except the tip; tip becomes its own row.
       const mainAmount = +(grandTotal - tip).toFixed(2);
+      const zMeta = method === "zelle" ? zelleMetaRef.current : null;
       const { error: pErr } = await supabase.from("payments").insert({
         order_id: order.id,
         method: method === "zelle" ? "other" : method,
@@ -382,7 +383,12 @@ export function PosClient() {
         status: "succeeded",
         cash_drawer_status: drawerStatus,
         created_by: user!.id,
-        external_reference: method === "zelle" ? "zelle" : null,
+        external_reference: method === "zelle" ? (zMeta?.reference || "zelle") : null,
+        provider: method === "zelle" ? "zelle" : (method === "card" ? "manual" : (method === "cash" ? "manual" : "other")),
+        payment_channel: method === "zelle" ? "external" : "in_person",
+        zelle_reference: zMeta?.reference ?? null,
+        zelle_sender: zMeta?.sender ?? null,
+        zelle_note: zMeta?.note ?? null,
         ...(method === "card"
           ? { card_brand: "MOCK", card_last4: "0000", payment_intent_id: `pi_mock_${order.id.slice(0, 8)}` }
           : {}),
