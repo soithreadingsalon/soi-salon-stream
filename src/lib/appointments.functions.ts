@@ -70,7 +70,7 @@ export const updateAppointmentStatus = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = { status: data.status };
+    const patch: any = { status: data.status };
     const now = new Date().toISOString();
     if (data.status === "checked_in") patch.checked_in_at = now;
     if (data.status === "in_service") patch.started_at = now;
