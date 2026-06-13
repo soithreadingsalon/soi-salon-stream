@@ -11,8 +11,8 @@
  */
 
 @theme inline {
-  --font-sans: "Inter", "Helvetica Neue", system-ui, sans-serif;
-  --font-display: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  --font-sans: Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif;
+  --font-display: Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
