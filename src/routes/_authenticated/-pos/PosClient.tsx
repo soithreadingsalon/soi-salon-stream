@@ -649,6 +649,7 @@ export function PosClient() {
         onChoose={chargeWith}
         pending={completeSale.isPending}
         payingMethod={payingMethod}
+        onZelleMeta={(m) => { zelleMetaRef.current = m; }}
       />
 
 
