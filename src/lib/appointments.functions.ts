@@ -20,7 +20,7 @@ export const listAppointments = createServerFn({ method: "POST" })
     let q = context.supabase.from("appointments").select("*").order("appointment_date", { ascending: true }).order("appointment_time", { ascending: true });
     if (data.from) q = q.gte("appointment_date", data.from);
     if (data.to) q = q.lte("appointment_date", data.to);
-    if (data.status) q = q.eq("status", data.status);
+    if (data.status) q = q.eq("status", data.status as any);
     if (data.staffId === null) q = q.is("assigned_staff_id", null);
     else if (data.staffId) q = q.eq("assigned_staff_id", data.staffId);
     if (data.source) q = q.eq("booking_source", data.source);
