@@ -90,6 +90,7 @@ export function PosClient() {
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [payingMethod, setPayingMethod] = useState<PayMethod | null>(null);
+  const zelleMetaRef = useRef<{ reference: string; sender: string; note: string } | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [liveMsg, setLiveMsg] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
