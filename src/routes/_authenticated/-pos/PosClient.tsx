@@ -456,6 +456,7 @@ export function PosClient() {
       setCart([]); setCustomer(null);
       setPayOpen(false);
       setPayingMethod(null);
+      zelleMetaRef.current = null;
       setMobileCartOpen(false);
       resetCheckoutState();
       qc.invalidateQueries({ queryKey: ["dashboard-today"] });
@@ -463,6 +464,7 @@ export function PosClient() {
     },
     onError: (e: any) => {
       setPayingMethod(null);
+      zelleMetaRef.current = null;
       toast.error(e.message ?? "Failed");
     },
   });
