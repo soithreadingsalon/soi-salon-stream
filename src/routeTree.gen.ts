@@ -21,6 +21,7 @@ import { Route as AuthenticatedMySalesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedMembershipsRouteImport } from './routes/_authenticated/memberships'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
+import { Route as AuthenticatedAppointmentsRouteImport } from './routes/_authenticated/appointments'
 import { Route as ApiPublicWebsiteAppointmentRouteImport } from './routes/api/public/website-appointment'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 
@@ -84,6 +85,12 @@ const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAppointmentsRoute =
+  AuthenticatedAppointmentsRouteImport.update({
+    id: '/appointments',
+    path: '/appointments',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicWebsiteAppointmentRoute =
   ApiPublicWebsiteAppointmentRouteImport.update({
     id: '/api/public/website-appointment',
@@ -101,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/soi': typeof SoiRoute
+  '/appointments': typeof AuthenticatedAppointmentsRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/memberships': typeof AuthenticatedMembershipsRoute
@@ -116,6 +124,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/soi': typeof SoiRoute
+  '/appointments': typeof AuthenticatedAppointmentsRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/memberships': typeof AuthenticatedMembershipsRoute
@@ -133,6 +142,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/soi': typeof SoiRoute
+  '/_authenticated/appointments': typeof AuthenticatedAppointmentsRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/memberships': typeof AuthenticatedMembershipsRoute
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/soi'
+    | '/appointments'
     | '/customers'
     | '/dashboard'
     | '/memberships'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/soi'
+    | '/appointments'
     | '/customers'
     | '/dashboard'
     | '/memberships'
@@ -181,6 +193,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/soi'
+    | '/_authenticated/appointments'
     | '/_authenticated/customers'
     | '/_authenticated/dashboard'
     | '/_authenticated/memberships'
@@ -287,6 +300,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/appointments': {
+      id: '/_authenticated/appointments'
+      path: '/appointments'
+      fullPath: '/appointments'
+      preLoaderRoute: typeof AuthenticatedAppointmentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/website-appointment': {
       id: '/api/public/website-appointment'
       path: '/api/public/website-appointment'
@@ -320,6 +340,7 @@ const AuthenticatedCustomersRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAppointmentsRoute: typeof AuthenticatedAppointmentsRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMembershipsRoute: typeof AuthenticatedMembershipsRoute
@@ -331,6 +352,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAppointmentsRoute: AuthenticatedAppointmentsRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMembershipsRoute: AuthenticatedMembershipsRoute,
