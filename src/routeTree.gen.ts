@@ -21,6 +21,8 @@ import { Route as AuthenticatedMySalesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedMembershipsRouteImport } from './routes/_authenticated/memberships'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
+import { Route as AuthenticatedAppointmentsRouteImport } from './routes/_authenticated/appointments'
+import { Route as ApiPublicWebsiteAppointmentRouteImport } from './routes/api/public/website-appointment'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 
 const SoiRoute = SoiRouteImport.update({
@@ -83,6 +85,18 @@ const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedAppointmentsRoute =
+  AuthenticatedAppointmentsRouteImport.update({
+    id: '/appointments',
+    path: '/appointments',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const ApiPublicWebsiteAppointmentRoute =
+  ApiPublicWebsiteAppointmentRouteImport.update({
+    id: '/api/public/website-appointment',
+    path: '/api/public/website-appointment',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedCustomersCustomerIdRoute =
   AuthenticatedCustomersCustomerIdRouteImport.update({
     id: '/$customerId',
@@ -94,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/soi': typeof SoiRoute
+  '/appointments': typeof AuthenticatedAppointmentsRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/memberships': typeof AuthenticatedMembershipsRoute
@@ -103,11 +118,13 @@ export interface FileRoutesByFullPath {
   '/services': typeof AuthenticatedServicesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRoute
+  '/api/public/website-appointment': typeof ApiPublicWebsiteAppointmentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/soi': typeof SoiRoute
+  '/appointments': typeof AuthenticatedAppointmentsRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/memberships': typeof AuthenticatedMembershipsRoute
@@ -117,6 +134,7 @@ export interface FileRoutesByTo {
   '/services': typeof AuthenticatedServicesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRoute
+  '/api/public/website-appointment': typeof ApiPublicWebsiteAppointmentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -124,6 +142,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/login': typeof LoginRoute
   '/soi': typeof SoiRoute
+  '/_authenticated/appointments': typeof AuthenticatedAppointmentsRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/memberships': typeof AuthenticatedMembershipsRoute
@@ -133,6 +152,7 @@ export interface FileRoutesById {
   '/_authenticated/services': typeof AuthenticatedServicesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRoute
+  '/api/public/website-appointment': typeof ApiPublicWebsiteAppointmentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -140,6 +160,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/soi'
+    | '/appointments'
     | '/customers'
     | '/dashboard'
     | '/memberships'
@@ -149,11 +170,13 @@ export interface FileRouteTypes {
     | '/services'
     | '/settings'
     | '/customers/$customerId'
+    | '/api/public/website-appointment'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/soi'
+    | '/appointments'
     | '/customers'
     | '/dashboard'
     | '/memberships'
@@ -163,12 +186,14 @@ export interface FileRouteTypes {
     | '/services'
     | '/settings'
     | '/customers/$customerId'
+    | '/api/public/website-appointment'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/login'
     | '/soi'
+    | '/_authenticated/appointments'
     | '/_authenticated/customers'
     | '/_authenticated/dashboard'
     | '/_authenticated/memberships'
@@ -178,6 +203,7 @@ export interface FileRouteTypes {
     | '/_authenticated/services'
     | '/_authenticated/settings'
     | '/_authenticated/customers/$customerId'
+    | '/api/public/website-appointment'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -185,6 +211,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SoiRoute: typeof SoiRoute
+  ApiPublicWebsiteAppointmentRoute: typeof ApiPublicWebsiteAppointmentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -273,6 +300,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/appointments': {
+      id: '/_authenticated/appointments'
+      path: '/appointments'
+      fullPath: '/appointments'
+      preLoaderRoute: typeof AuthenticatedAppointmentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/website-appointment': {
+      id: '/api/public/website-appointment'
+      path: '/api/public/website-appointment'
+      fullPath: '/api/public/website-appointment'
+      preLoaderRoute: typeof ApiPublicWebsiteAppointmentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/customers/$customerId': {
       id: '/_authenticated/customers/$customerId'
       path: '/$customerId'
@@ -299,6 +340,7 @@ const AuthenticatedCustomersRouteWithChildren =
   )
 
 interface AuthenticatedRouteChildren {
+  AuthenticatedAppointmentsRoute: typeof AuthenticatedAppointmentsRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMembershipsRoute: typeof AuthenticatedMembershipsRoute
@@ -310,6 +352,7 @@ interface AuthenticatedRouteChildren {
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedAppointmentsRoute: AuthenticatedAppointmentsRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMembershipsRoute: AuthenticatedMembershipsRoute,
@@ -329,17 +372,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SoiRoute: SoiRoute,
+  ApiPublicWebsiteAppointmentRoute: ApiPublicWebsiteAppointmentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

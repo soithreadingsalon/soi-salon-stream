@@ -11,8 +11,8 @@
  */
 
 @theme inline {
-  --font-sans: "Inter", "Helvetica Neue", system-ui, sans-serif;
-  --font-display: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  --font-sans: Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif;
+  --font-display: Arial, "Helvetica Neue", Helvetica, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -158,6 +158,15 @@
   .shadow-lift { box-shadow: var(--shadow-lift); }
   .border-gold { border-color: var(--gold); }
   .ring-gold { --tw-ring-color: var(--gold); }
+  .tabular-nums { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; text-align: right; }
+  .stat-number { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+}
+
+/* Reports & receipts: Arial + tabular numerals everywhere numbers appear */
+table, .stat-number, .report-num, .kpi-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
 }
 
 /* 58mm thermal receipt — on-screen preview uses monospace; print rules below */

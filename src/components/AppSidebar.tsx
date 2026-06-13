@@ -9,6 +9,7 @@ import {
   History,
   IdCard,
   BarChart3,
+  CalendarClock,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,7 +45,8 @@ const items: NavItem[] = [
   { title: "Customers", url: "/customers", icon: Users, permissions: ["customers.view"] },
   { title: "Services", url: "/services", icon: Sparkles, permissions: ["services.edit"] },
   { title: "Memberships", url: "/memberships", icon: IdCard, permissions: ["memberships.view", "memberships.manage"] },
-  { title: "Reports", url: "/reports", icon: BarChart3, permissions: ["reports.view"] },
+  { title: "Appointments", url: "/appointments", icon: CalendarClock, permissions: ["appointments.view_all", "appointments.checkin"] },
+  { title: "Reports", url: "/reports", icon: BarChart3, permissions: ["reports.view", "reports.full", "reports.today_only"] },
   { title: "Settings", url: "/settings", icon: Settings, adminOnly: true },
 ];
 

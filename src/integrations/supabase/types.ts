@@ -14,6 +14,319 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          appointment_date: string
+          appointment_time: string
+          assigned_staff_id: string | null
+          booking_source: string
+          cancelled_at: string | null
+          checked_in_at: string | null
+          completed_at: string | null
+          created_at: string
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string
+          customer_phone: string | null
+          duration_minutes: number
+          external_booking_id: string | null
+          external_source: string | null
+          id: string
+          last_synced_at: string | null
+          no_show_at: string | null
+          notes: string | null
+          order_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          service_id: string | null
+          service_name: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["appointment_status"]
+          sync_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_time: string
+          assigned_staff_id?: string | null
+          booking_source?: string
+          cancelled_at?: string | null
+          checked_in_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          duration_minutes?: number
+          external_booking_id?: string | null
+          external_source?: string | null
+          id?: string
+          last_synced_at?: string | null
+          no_show_at?: string | null
+          notes?: string | null
+          order_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_id?: string | null
+          service_name?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["appointment_status"]
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_time?: string
+          assigned_staff_id?: string | null
+          booking_source?: string
+          cancelled_at?: string | null
+          checked_in_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          duration_minutes?: number
+          external_booking_id?: string | null
+          external_source?: string | null
+          id?: string
+          last_synced_at?: string | null
+          no_show_at?: string | null
+          notes?: string | null
+          order_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_id?: string | null
+          service_name?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["appointment_status"]
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointments_backup: {
+        Row: {
+          appointment_date: string
+          appointment_time: string
+          assigned_staff_id: string | null
+          booking_source: string
+          cancelled_at: string | null
+          checked_in_at: string | null
+          completed_at: string | null
+          created_at: string
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string
+          customer_phone: string | null
+          duration_minutes: number
+          external_booking_id: string | null
+          external_source: string | null
+          id: string
+          last_synced_at: string | null
+          no_show_at: string | null
+          notes: string | null
+          order_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          service_id: string | null
+          service_name: string | null
+          snapshot_at: string
+          snapshot_date: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["appointment_status"]
+          sync_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_time: string
+          assigned_staff_id?: string | null
+          booking_source?: string
+          cancelled_at?: string | null
+          checked_in_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          duration_minutes?: number
+          external_booking_id?: string | null
+          external_source?: string | null
+          id?: string
+          last_synced_at?: string | null
+          no_show_at?: string | null
+          notes?: string | null
+          order_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_id?: string | null
+          service_name?: string | null
+          snapshot_at?: string
+          snapshot_date: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["appointment_status"]
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_time?: string
+          assigned_staff_id?: string | null
+          booking_source?: string
+          cancelled_at?: string | null
+          checked_in_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          duration_minutes?: number
+          external_booking_id?: string | null
+          external_source?: string | null
+          id?: string
+          last_synced_at?: string | null
+          no_show_at?: string | null
+          notes?: string | null
+          order_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_id?: string | null
+          service_name?: string | null
+          snapshot_at?: string
+          snapshot_date?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["appointment_status"]
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      appointments_deleted: {
+        Row: {
+          appointment_date: string
+          appointment_time: string
+          assigned_staff_id: string | null
+          booking_source: string
+          cancelled_at: string | null
+          checked_in_at: string | null
+          completed_at: string | null
+          created_at: string
+          customer_email: string | null
+          customer_id: string | null
+          customer_name: string
+          customer_phone: string | null
+          deleted_at: string
+          deleted_by: string | null
+          duration_minutes: number
+          external_booking_id: string | null
+          external_source: string | null
+          id: string
+          last_synced_at: string | null
+          no_show_at: string | null
+          notes: string | null
+          order_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          service_id: string | null
+          service_name: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["appointment_status"]
+          sync_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_time: string
+          assigned_staff_id?: string | null
+          booking_source?: string
+          cancelled_at?: string | null
+          checked_in_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          deleted_at?: string
+          deleted_by?: string | null
+          duration_minutes?: number
+          external_booking_id?: string | null
+          external_source?: string | null
+          id?: string
+          last_synced_at?: string | null
+          no_show_at?: string | null
+          notes?: string | null
+          order_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_id?: string | null
+          service_name?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["appointment_status"]
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_time?: string
+          assigned_staff_id?: string | null
+          booking_source?: string
+          cancelled_at?: string | null
+          checked_in_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_id?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          deleted_at?: string
+          deleted_by?: string | null
+          duration_minutes?: number
+          external_booking_id?: string | null
+          external_source?: string | null
+          id?: string
+          last_synced_at?: string | null
+          no_show_at?: string | null
+          notes?: string | null
+          order_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          service_id?: string | null
+          service_name?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["appointment_status"]
+          sync_status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -242,6 +555,63 @@ export type Database = {
           total_spend?: number
           updated_at?: string
           visit_count?: number
+        }
+        Relationships: []
+      }
+      daily_closeouts: {
+        Row: {
+          actual_cash: number
+          card_total: number
+          cash_difference: number | null
+          closed_at: string
+          closed_by: string | null
+          closeout_date: string
+          created_at: string
+          expected_cash: number
+          external_card_total: number
+          gift_card_total: number
+          id: string
+          net_sales: number
+          notes: string | null
+          refund_total: number
+          updated_at: string
+          zelle_total: number
+        }
+        Insert: {
+          actual_cash?: number
+          card_total?: number
+          cash_difference?: number | null
+          closed_at?: string
+          closed_by?: string | null
+          closeout_date: string
+          created_at?: string
+          expected_cash?: number
+          external_card_total?: number
+          gift_card_total?: number
+          id?: string
+          net_sales?: number
+          notes?: string | null
+          refund_total?: number
+          updated_at?: string
+          zelle_total?: number
+        }
+        Update: {
+          actual_cash?: number
+          card_total?: number
+          cash_difference?: number | null
+          closed_at?: string
+          closed_by?: string | null
+          closeout_date?: string
+          created_at?: string
+          expected_cash?: number
+          external_card_total?: number
+          gift_card_total?: number
+          id?: string
+          net_sales?: number
+          notes?: string | null
+          refund_total?: number
+          updated_at?: string
+          zelle_total?: number
         }
         Relationships: []
       }
@@ -514,10 +884,68 @@ export type Database = {
           },
         ]
       }
+      orders_backup: {
+        Row: {
+          cashier_id: string | null
+          completed_at: string | null
+          created_at: string
+          customer_id: string | null
+          discount_total: number
+          id: string
+          notes: string | null
+          order_number: number
+          snapshot_at: string
+          snapshot_date: string
+          status: Database["public"]["Enums"]["order_status"]
+          subtotal: number
+          tax_total: number
+          tip_total: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          cashier_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          discount_total?: number
+          id?: string
+          notes?: string | null
+          order_number?: number
+          snapshot_at?: string
+          snapshot_date: string
+          status?: Database["public"]["Enums"]["order_status"]
+          subtotal?: number
+          tax_total?: number
+          tip_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          cashier_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_id?: string | null
+          discount_total?: number
+          id?: string
+          notes?: string | null
+          order_number?: number
+          snapshot_at?: string
+          snapshot_date?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          subtotal?: number
+          tax_total?: number
+          tip_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
           card_brand: string | null
+          card_funding: string | null
           card_last4: string | null
           cash_drawer_status: string
           charge_id: string | null
@@ -527,13 +955,21 @@ export type Database = {
           id: string
           method: Database["public"]["Enums"]["payment_method"]
           order_id: string
+          payment_channel: string | null
           payment_intent_id: string | null
           payment_method: string | null
+          provider: string | null
+          refund_amount: number
           status: Database["public"]["Enums"]["payment_status"]
+          tip_amount: number
+          zelle_note: string | null
+          zelle_reference: string | null
+          zelle_sender: string | null
         }
         Insert: {
           amount: number
           card_brand?: string | null
+          card_funding?: string | null
           card_last4?: string | null
           cash_drawer_status?: string
           charge_id?: string | null
@@ -543,13 +979,21 @@ export type Database = {
           id?: string
           method: Database["public"]["Enums"]["payment_method"]
           order_id: string
+          payment_channel?: string | null
           payment_intent_id?: string | null
           payment_method?: string | null
+          provider?: string | null
+          refund_amount?: number
           status?: Database["public"]["Enums"]["payment_status"]
+          tip_amount?: number
+          zelle_note?: string | null
+          zelle_reference?: string | null
+          zelle_sender?: string | null
         }
         Update: {
           amount?: number
           card_brand?: string | null
+          card_funding?: string | null
           card_last4?: string | null
           cash_drawer_status?: string
           charge_id?: string | null
@@ -559,9 +1003,16 @@ export type Database = {
           id?: string
           method?: Database["public"]["Enums"]["payment_method"]
           order_id?: string
+          payment_channel?: string | null
           payment_intent_id?: string | null
           payment_method?: string | null
+          provider?: string | null
+          refund_amount?: number
           status?: Database["public"]["Enums"]["payment_status"]
+          tip_amount?: number
+          zelle_note?: string | null
+          zelle_reference?: string | null
+          zelle_sender?: string | null
         }
         Relationships: [
           {
@@ -572,6 +1023,87 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payments_backup: {
+        Row: {
+          amount: number
+          card_brand: string | null
+          card_funding: string | null
+          card_last4: string | null
+          cash_drawer_status: string
+          charge_id: string | null
+          created_at: string
+          created_by: string | null
+          external_reference: string | null
+          id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          order_id: string
+          payment_channel: string | null
+          payment_intent_id: string | null
+          payment_method: string | null
+          provider: string | null
+          refund_amount: number
+          snapshot_at: string
+          snapshot_date: string
+          status: Database["public"]["Enums"]["payment_status"]
+          tip_amount: number
+          zelle_note: string | null
+          zelle_reference: string | null
+          zelle_sender: string | null
+        }
+        Insert: {
+          amount: number
+          card_brand?: string | null
+          card_funding?: string | null
+          card_last4?: string | null
+          cash_drawer_status?: string
+          charge_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          external_reference?: string | null
+          id?: string
+          method: Database["public"]["Enums"]["payment_method"]
+          order_id: string
+          payment_channel?: string | null
+          payment_intent_id?: string | null
+          payment_method?: string | null
+          provider?: string | null
+          refund_amount?: number
+          snapshot_at?: string
+          snapshot_date: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          tip_amount?: number
+          zelle_note?: string | null
+          zelle_reference?: string | null
+          zelle_sender?: string | null
+        }
+        Update: {
+          amount?: number
+          card_brand?: string | null
+          card_funding?: string | null
+          card_last4?: string | null
+          cash_drawer_status?: string
+          charge_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          external_reference?: string | null
+          id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          order_id?: string
+          payment_channel?: string | null
+          payment_intent_id?: string | null
+          payment_method?: string | null
+          provider?: string | null
+          refund_amount?: number
+          snapshot_at?: string
+          snapshot_date?: string
+          status?: Database["public"]["Enums"]["payment_status"]
+          tip_amount?: number
+          zelle_note?: string | null
+          zelle_reference?: string | null
+          zelle_sender?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -910,8 +1442,11 @@ export type Database = {
         Returns: boolean
       }
       reset_services_to_official_menu: { Args: never; Returns: undefined }
+      restore_appointment: { Args: { _id: string }; Returns: undefined }
       restore_customer: { Args: { _id: string }; Returns: undefined }
       restore_service: { Args: { _id: string }; Returns: undefined }
+      run_daily_backups: { Args: never; Returns: undefined }
+      soft_delete_appointment: { Args: { _id: string }; Returns: undefined }
       soft_delete_customer: { Args: { _id: string }; Returns: undefined }
       soft_delete_service: { Args: { _id: string }; Returns: undefined }
       verify_worker_pin: {
@@ -921,6 +1456,15 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "manager" | "cashier" | "staff"
+      appointment_status:
+        | "new"
+        | "confirmed"
+        | "checked_in"
+        | "waiting"
+        | "in_service"
+        | "completed"
+        | "cancelled"
+        | "no_show"
       order_status:
         | "open"
         | "completed"
@@ -929,7 +1473,14 @@ export type Database = {
         | "partially_refunded"
         | "awaiting_customer"
         | "awaiting_confirmation"
-      payment_method: "cash" | "card" | "gift_card" | "other" | "split"
+      payment_method:
+        | "cash"
+        | "card"
+        | "gift_card"
+        | "other"
+        | "split"
+        | "zelle"
+        | "external_card"
       payment_status:
         | "pending"
         | "processing"
@@ -1066,6 +1617,16 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin", "manager", "cashier", "staff"],
+      appointment_status: [
+        "new",
+        "confirmed",
+        "checked_in",
+        "waiting",
+        "in_service",
+        "completed",
+        "cancelled",
+        "no_show",
+      ],
       order_status: [
         "open",
         "completed",
@@ -1075,7 +1636,15 @@ export const Constants = {
         "awaiting_customer",
         "awaiting_confirmation",
       ],
-      payment_method: ["cash", "card", "gift_card", "other", "split"],
+      payment_method: [
+        "cash",
+        "card",
+        "gift_card",
+        "other",
+        "split",
+        "zelle",
+        "external_card",
+      ],
       payment_status: [
         "pending",
         "processing",

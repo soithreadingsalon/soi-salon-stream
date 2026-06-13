@@ -14,9 +14,15 @@ export type PermissionKey =
   | "memberships.view"
   | "memberships.manage"
   | "reports.view"
+  | "reports.full"
+  | "reports.today_only"
   | "reports.export"
   | "shifts.view"
-  | "shifts.edit";
+  | "shifts.edit"
+  | "appointments.view_all"
+  | "appointments.assign"
+  | "appointments.checkin"
+  | "appointments.cancel";
 
 export function usePermissions() {
   const { roles, hasRole } = useAuth();
