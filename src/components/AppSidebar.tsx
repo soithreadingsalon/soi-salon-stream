@@ -9,6 +9,7 @@ import {
   History,
   IdCard,
   BarChart3,
+  CalendarClock,
 } from "lucide-react";
 import {
   Sidebar,
