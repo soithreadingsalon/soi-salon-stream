@@ -90,6 +90,7 @@ export function PosClient() {
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [payingMethod, setPayingMethod] = useState<PayMethod | null>(null);
+  const zelleMetaRef = useRef<{ reference: string; sender: string; note: string } | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [liveMsg, setLiveMsg] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -373,6 +374,7 @@ export function PosClient() {
 
       // Main payment row covers everything except the tip; tip becomes its own row.
       const mainAmount = +(grandTotal - tip).toFixed(2);
+      const zMeta = method === "zelle" ? zelleMetaRef.current : null;
       const { error: pErr } = await supabase.from("payments").insert({
         order_id: order.id,
         method: method === "zelle" ? "other" : method,
@@ -381,7 +383,12 @@ export function PosClient() {
         status: "succeeded",
         cash_drawer_status: drawerStatus,
         created_by: user!.id,
-        external_reference: method === "zelle" ? "zelle" : null,
+        external_reference: method === "zelle" ? (zMeta?.reference || "zelle") : null,
+        provider: method === "zelle" ? "zelle" : (method === "card" ? "manual" : (method === "cash" ? "manual" : "other")),
+        payment_channel: method === "zelle" ? "external" : "in_person",
+        zelle_reference: zMeta?.reference ?? null,
+        zelle_sender: zMeta?.sender ?? null,
+        zelle_note: zMeta?.note ?? null,
         ...(method === "card"
           ? { card_brand: "MOCK", card_last4: "0000", payment_intent_id: `pi_mock_${order.id.slice(0, 8)}` }
           : {}),
@@ -449,6 +456,7 @@ export function PosClient() {
       setCart([]); setCustomer(null);
       setPayOpen(false);
       setPayingMethod(null);
+      zelleMetaRef.current = null;
       setMobileCartOpen(false);
       resetCheckoutState();
       qc.invalidateQueries({ queryKey: ["dashboard-today"] });
@@ -456,6 +464,7 @@ export function PosClient() {
     },
     onError: (e: any) => {
       setPayingMethod(null);
+      zelleMetaRef.current = null;
       toast.error(e.message ?? "Failed");
     },
   });
@@ -640,6 +649,7 @@ export function PosClient() {
         onChoose={chargeWith}
         pending={completeSale.isPending}
         payingMethod={payingMethod}
+        onZelleMeta={(m) => { zelleMetaRef.current = m; }}
       />
 
 
@@ -991,7 +1001,7 @@ function CartPanel({
 
 /* ============== PAYMENT METHOD DIALOG ============== */
 function PaymentMethodDialog({
-  open, onOpenChange, grandTotal, onChoose, pending, payingMethod,
+  open, onOpenChange, grandTotal, onChoose, pending, payingMethod, onZelleMeta,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -999,41 +1009,91 @@ function PaymentMethodDialog({
   onChoose: (m: PayMethod) => void;
   pending: boolean;
   payingMethod: PayMethod | null;
+  onZelleMeta?: (m: { reference: string; sender: string; note: string }) => void;
 }) {
+  const [zelleOpen, setZelleOpen] = useState(false);
+  const [zRef, setZRef] = useState("");
+  const [zSender, setZSender] = useState("");
+  const [zNote, setZNote] = useState("");
+  const [zConfirmed, setZConfirmed] = useState(false);
+
   const choices: { m: PayMethod; label: string; icon: any }[] = [
     { m: "cash", label: "Cash", icon: Banknote },
     { m: "card", label: "Card", icon: CreditCard },
     { m: "zelle", label: "Zelle", icon: Wallet },
   ];
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setZelleOpen(false); setZRef(""); setZSender(""); setZNote(""); setZConfirmed(false); } }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">
             Charge {fmt(grandTotal)}
           </DialogTitle>
         </DialogHeader>
-        <p className="text-sm text-muted-foreground">
-          Pick a payment method — the sale completes immediately.
-        </p>
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          {choices.map(({ m, label, icon: Icon }) => {
-            const isPaying = payingMethod === m;
-            return (
+        {!zelleOpen ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Pick a payment method — the sale completes immediately.
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {choices.map(({ m, label, icon: Icon }) => {
+                const isPaying = payingMethod === m;
+                return (
+                  <button
+                    key={m}
+                    disabled={pending}
+                    onClick={() => {
+                      if (m === "zelle") { setZelleOpen(true); return; }
+                      onChoose(m);
+                    }}
+                    className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 p-4 transition active:scale-95 disabled:opacity-50 ${
+                      isPaying ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
+                    }`}
+                  >
+                    <Icon className={`h-7 w-7 ${isPaying ? "text-gold animate-pulse" : "text-muted-foreground"}`} />
+                    <span className="font-display text-base">{isPaying ? "Processing…" : label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              ⚠️ Please confirm the Zelle payment has been received in your bank app before completing the order.
+            </div>
+            <div>
+              <label className="text-xs font-medium">Zelle confirmation #</label>
+              <Input value={zRef} onChange={(e) => setZRef(e.target.value)} placeholder="e.g. 1234ABCD" />
+            </div>
+            <div>
+              <label className="text-xs font-medium">Sender name (optional)</label>
+              <Input value={zSender} onChange={(e) => setZSender(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium">Note (optional)</label>
+              <Input value={zNote} onChange={(e) => setZNote(e.target.value)} />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={zConfirmed} onChange={(e) => setZConfirmed(e.target.checked)} />
+              I have verified the funds in our Zelle/bank app.
+            </label>
+            <div className="flex gap-2">
+              <button type="button" className="flex-1 rounded border px-3 py-2 text-sm" onClick={() => setZelleOpen(false)}>Back</button>
               <button
-                key={m}
-                disabled={pending}
-                onClick={() => onChoose(m)}
-                className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 p-4 transition active:scale-95 disabled:opacity-50 ${
-                  isPaying ? "border-gold bg-gold/15" : "border-border bg-card hover:border-gold/60"
-                }`}
+                type="button"
+                disabled={pending || !zRef.trim() || !zConfirmed}
+                onClick={() => {
+                  onZelleMeta?.({ reference: zRef.trim(), sender: zSender.trim(), note: zNote.trim() });
+                  onChoose("zelle");
+                }}
+                className="flex-1 rounded bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
               >
-                <Icon className={`h-7 w-7 ${isPaying ? "text-gold animate-pulse" : "text-muted-foreground"}`} />
-                <span className="font-display text-base">{isPaying ? "Processing…" : label}</span>
+                {payingMethod === "zelle" ? "Processing…" : `Complete Zelle ${fmt(grandTotal)}`}
               </button>
-            );
-          })}
-        </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
