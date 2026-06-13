@@ -21,6 +21,7 @@ import { Route as AuthenticatedMySalesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedMembershipsRouteImport } from './routes/_authenticated/memberships'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
+import { Route as ApiPublicWebsiteAppointmentRouteImport } from './routes/api/public/website-appointment'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 
 const SoiRoute = SoiRouteImport.update({
@@ -83,6 +84,12 @@ const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
   path: '/customers',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiPublicWebsiteAppointmentRoute =
+  ApiPublicWebsiteAppointmentRouteImport.update({
+    id: '/api/public/website-appointment',
+    path: '/api/public/website-appointment',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedCustomersCustomerIdRoute =
   AuthenticatedCustomersCustomerIdRouteImport.update({
     id: '/$customerId',
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/services': typeof AuthenticatedServicesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRoute
+  '/api/public/website-appointment': typeof ApiPublicWebsiteAppointmentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -117,6 +125,7 @@ export interface FileRoutesByTo {
   '/services': typeof AuthenticatedServicesRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRoute
+  '/api/public/website-appointment': typeof ApiPublicWebsiteAppointmentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -133,6 +142,7 @@ export interface FileRoutesById {
   '/_authenticated/services': typeof AuthenticatedServicesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRoute
+  '/api/public/website-appointment': typeof ApiPublicWebsiteAppointmentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/settings'
     | '/customers/$customerId'
+    | '/api/public/website-appointment'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/services'
     | '/settings'
     | '/customers/$customerId'
+    | '/api/public/website-appointment'
   id:
     | '__root__'
     | '/'
@@ -178,6 +190,7 @@ export interface FileRouteTypes {
     | '/_authenticated/services'
     | '/_authenticated/settings'
     | '/_authenticated/customers/$customerId'
+    | '/api/public/website-appointment'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -185,6 +198,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SoiRoute: typeof SoiRoute
+  ApiPublicWebsiteAppointmentRoute: typeof ApiPublicWebsiteAppointmentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -273,6 +287,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/website-appointment': {
+      id: '/api/public/website-appointment'
+      path: '/api/public/website-appointment'
+      fullPath: '/api/public/website-appointment'
+      preLoaderRoute: typeof ApiPublicWebsiteAppointmentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/customers/$customerId': {
       id: '/_authenticated/customers/$customerId'
       path: '/$customerId'
@@ -329,7 +350,18 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SoiRoute: SoiRoute,
+  ApiPublicWebsiteAppointmentRoute: ApiPublicWebsiteAppointmentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
