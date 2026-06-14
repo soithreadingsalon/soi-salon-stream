@@ -273,6 +273,7 @@ function AppointmentsPage() {
         {presetBtn("today", "Today")}
         {presetBtn("tomorrow", "Tomorrow")}
         {presetBtn("week", "This week")}
+        {presetBtn("next-week", "Next week")}
         {presetBtn("all", "All dates")}
       </div>
 
