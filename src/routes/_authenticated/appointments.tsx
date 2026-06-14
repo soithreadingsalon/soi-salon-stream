@@ -94,6 +94,13 @@ function weekEndStr() { const d = new Date(); d.setDate(d.getDate() + 6); return
 
 type DatePreset = "today" | "tomorrow" | "week" | "all" | "custom";
 
+// Hide the environment toggle on the live production site. Preview/dev keeps it.
+function isProdHost() {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname.toLowerCase();
+  return h === "pos.soithreadingandsalon.com" || h === "soi-salon-stream.lovable.app";
+}
+
 function AppointmentsPage() {
   const { user } = useAuth();
   const { isAdmin } = usePermissions();
@@ -111,6 +118,8 @@ function AppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [envFilter, setEnvFilter] = useState<"production" | "test" | "all">("production");
+  const prodHost = isProdHost();
+  useEffect(() => { if (prodHost) setEnvFilter("production"); }, [prodHost]);
   const [search, setSearch] = useState("");
   // Default: non-admin staff see only their own appointments
   const [mineOnly, setMineOnly] = useState<boolean>(!isAdmin);
@@ -298,17 +307,19 @@ function AppointmentsPage() {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label className="text-xs">Environment</Label>
-            <Select value={envFilter} onValueChange={(v) => setEnvFilter(v as any)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="production">Production</SelectItem>
-                <SelectItem value="test">Test (sandbox)</SelectItem>
-                <SelectItem value="all">All</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!prodHost && (
+            <div>
+              <Label className="text-xs">Environment</Label>
+              <Select value={envFilter} onValueChange={(v) => setEnvFilter(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="production">Production</SelectItem>
+                  <SelectItem value="test">Test (sandbox)</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label className="text-xs">Search</Label>
             <Input placeholder="Name / phone / email" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -365,7 +376,7 @@ function AppointmentsPage() {
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-1.5 font-medium">
                             {a.customer_name}
-                            {a.environment === "test" && (
+                            {!prodHost && a.environment === "test" && (
                               <Badge className="bg-purple-600 text-white">TEST</Badge>
                             )}
                           </div>
@@ -421,8 +432,8 @@ function AppointmentsPage() {
                               </Button>
                             )}
                             {["new","confirmed","checked_in","in_service"].includes(a.status) && (
-                              <Button size="sm" onClick={() => startCheckout(a)}>
-                                Convert to Sale
+                              <Button size="sm" onClick={() => statusMut.mutate({ id: a.id, status: "completed" })}>
+                                <Check className="mr-1 h-3 w-3" />Complete
                               </Button>
                             )}
                             {canCancel && !["completed","cancelled","no_show"].includes(a.status) && (
