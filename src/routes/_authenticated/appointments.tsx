@@ -192,7 +192,7 @@ function AppointmentsPage() {
 
       {/* Filters */}
       <Card className="border-border/60 shadow-soft">
-        <CardContent className="grid gap-3 p-4 md:grid-cols-5">
+        <CardContent className="grid gap-3 p-4 md:grid-cols-6">
           <div>
             <Label className="text-xs">From</Label>
             <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -221,6 +221,17 @@ function AppointmentsPage() {
                 <SelectItem value="pos">POS</SelectItem>
                 <SelectItem value="walk_in">Walk-In</SelectItem>
                 <SelectItem value="manual">Manual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Environment</Label>
+            <Select value={envFilter} onValueChange={(v) => setEnvFilter(v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="production">Production</SelectItem>
+                <SelectItem value="test">Test (sandbox)</SelectItem>
+                <SelectItem value="all">All</SelectItem>
               </SelectContent>
             </Select>
           </div>
