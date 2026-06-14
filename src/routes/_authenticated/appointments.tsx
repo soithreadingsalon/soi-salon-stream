@@ -91,6 +91,8 @@ function fmt(d: Date) {
 function todayStr() { return fmt(new Date()); }
 function tomorrowStr() { const d = new Date(); d.setDate(d.getDate() + 1); return fmt(d); }
 function weekEndStr() { const d = new Date(); d.setDate(d.getDate() + 6); return fmt(d); }
+function nextWeekStartStr() { const d = new Date(); d.setDate(d.getDate() + 7); return fmt(d); }
+function nextWeekEndStr() { const d = new Date(); d.setDate(d.getDate() + 13); return fmt(d); }
 
 type DatePreset = "today" | "tomorrow" | "week" | "all" | "custom";
 
