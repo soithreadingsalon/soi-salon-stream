@@ -54,6 +54,8 @@ export async function upsertCustomerFromAppointment(
     if (!e.preferred_service_name && p.service_name) patch.preferred_service_name = p.service_name;
     if (!e.preferred_service_category_id && p.service_category_id) patch.preferred_service_category_id = p.service_category_id;
     if (Object.keys(patch).length > 0) {
+      // Best-effort: some staff roles (cashier) can't update customers via RLS.
+      // The match is still useful even if we can't enrich the row.
       await supabase.from("customers").update(patch).eq("id", existing.id);
     }
     return existing.id;
