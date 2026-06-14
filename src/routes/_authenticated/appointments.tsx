@@ -432,8 +432,8 @@ function AppointmentsPage() {
                               </Button>
                             )}
                             {["new","confirmed","checked_in","in_service"].includes(a.status) && (
-                              <Button size="sm" onClick={() => startCheckout(a)}>
-                                Convert to Sale
+                              <Button size="sm" onClick={() => statusMut.mutate({ id: a.id, status: "completed" })}>
+                                <Check className="mr-1 h-3 w-3" />Complete
                               </Button>
                             )}
                             {canCancel && !["completed","cancelled","no_show"].includes(a.status) && (
