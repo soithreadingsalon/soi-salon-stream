@@ -56,7 +56,7 @@ export const Route = createFileRoute("/api/public/website-appointment")({
         // Auto-detect environment from hostname:
         // - *-dev.lovable.app or *.lovableproject.com → "test" (sandbox)
         // - anything else (custom domain, prod *.lovable.app) → "production"
-        const host = (request.headers.get("host") ?? "").toLowerCase();
+        const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").toLowerCase();
         const environment =
           host.includes("-dev.lovable.app") ||
           host.startsWith("preview--") ||
