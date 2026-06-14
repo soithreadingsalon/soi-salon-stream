@@ -20,7 +20,7 @@ function corsHeaders() {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, x-soi-signature",
+    "Access-Control-Allow-Headers": "Content-Type, x-soi-signature, x-booking-secret",
   };
 }
 
@@ -36,11 +36,18 @@ export const Route = createFileRoute("/api/public/website-appointment")({
           });
         }
         const body = await request.text();
+        const staticSecret = request.headers.get("x-booking-secret") ?? "";
         const sig = request.headers.get("x-soi-signature") ?? "";
         const expected = createHmac("sha256", secret).update(body).digest("hex");
-        const a = Buffer.from(sig);
-        const b = Buffer.from(expected);
-        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+        const providedStatic = Buffer.from(staticSecret);
+        const configuredStatic = Buffer.from(secret);
+        const providedSig = Buffer.from(sig);
+        const expectedSig = Buffer.from(expected);
+        const isStaticSecretValid =
+          providedStatic.length === configuredStatic.length && timingSafeEqual(providedStatic, configuredStatic);
+        const isSignatureValid =
+          providedSig.length === expectedSig.length && timingSafeEqual(providedSig, expectedSig);
+        if (!isStaticSecretValid && !isSignatureValid) {
           return new Response(JSON.stringify({ error: "Invalid signature" }), {
             status: 401, headers: corsHeaders(),
           });
@@ -51,7 +58,10 @@ export const Route = createFileRoute("/api/public/website-appointment")({
         // - anything else (custom domain, prod *.lovable.app) → "production"
         const host = (request.headers.get("host") ?? "").toLowerCase();
         const environment =
-          host.includes("-dev.lovable.app") || host.endsWith(".lovableproject.com")
+          host.includes("-dev.lovable.app") ||
+          host.startsWith("preview--") ||
+          host.includes("-preview--") ||
+          host.endsWith(".lovableproject.com")
             ? "test"
             : "production";
 
