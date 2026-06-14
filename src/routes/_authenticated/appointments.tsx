@@ -118,6 +118,8 @@ function AppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [envFilter, setEnvFilter] = useState<"production" | "test" | "all">("production");
+  const prodHost = isProdHost();
+  useEffect(() => { if (prodHost) setEnvFilter("production"); }, [prodHost]);
   const [search, setSearch] = useState("");
   // Default: non-admin staff see only their own appointments
   const [mineOnly, setMineOnly] = useState<boolean>(!isAdmin);
