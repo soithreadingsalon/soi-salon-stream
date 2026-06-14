@@ -106,6 +106,7 @@ export const Route = createFileRoute("/api/public/website-appointment")({
             external_source: payload.external_source ?? "website",
             external_booking_id: payload.external_booking_id ?? null,
             status: "new",
+            environment,
             sync_status: "synced",
             last_synced_at: new Date().toISOString(),
           })
