@@ -362,6 +362,10 @@ function AppointmentsPage() {
                   {visible.map((a) => {
                     const mine = a.assigned_staff_id === user?.id;
                     const isUnassigned = !a.assigned_staff_id;
+                    const canChangeStatus = isAdmin || mine;
+                    const lockTitle = isUnassigned
+                      ? "Claim this appointment first"
+                      : `Assigned to ${staffMap[a.assigned_staff_id!] ?? "another staff member"}`;
                     return (
                       <tr key={a.id} className={`border-t border-border/40 hover:bg-muted/30 ${mine ? "bg-amber-50/40" : ""}`}>
                         <td className="px-3 py-3">
@@ -422,17 +426,17 @@ function AppointmentsPage() {
                         <td className="px-3 py-3 text-right">
                           <div className="flex flex-wrap justify-end gap-1">
                             {canCheckin && a.status === "new" && (
-                              <Button size="sm" variant="outline" onClick={() => statusMut.mutate({ id: a.id, status: "checked_in" })}>
+                              <Button size="sm" variant="outline" disabled={!canChangeStatus} title={!canChangeStatus ? lockTitle : undefined} onClick={() => statusMut.mutate({ id: a.id, status: "checked_in" })}>
                                 <UserCheck className="mr-1 h-3 w-3" />Check In
                               </Button>
                             )}
                             {canCheckin && a.status === "checked_in" && (
-                              <Button size="sm" variant="outline" onClick={() => statusMut.mutate({ id: a.id, status: "in_service" })}>
+                              <Button size="sm" variant="outline" disabled={!canChangeStatus} title={!canChangeStatus ? lockTitle : undefined} onClick={() => statusMut.mutate({ id: a.id, status: "in_service" })}>
                                 <Play className="mr-1 h-3 w-3" />Start
                               </Button>
                             )}
                             {["new","confirmed","checked_in","in_service"].includes(a.status) && (
-                              <Button size="sm" onClick={() => statusMut.mutate({ id: a.id, status: "completed" })}>
+                              <Button size="sm" disabled={!canChangeStatus} title={!canChangeStatus ? lockTitle : undefined} onClick={() => statusMut.mutate({ id: a.id, status: "completed" })}>
                                 <Check className="mr-1 h-3 w-3" />Complete
                               </Button>
                             )}
@@ -445,6 +449,11 @@ function AppointmentsPage() {
                                   <X className="mr-1 h-3 w-3" />Cancel
                                 </Button>
                               </>
+                            )}
+                            {!canChangeStatus && !isUnassigned && !isAdmin && (
+                              <span className="self-center text-xs text-muted-foreground italic">
+                                Claimed by {staffMap[a.assigned_staff_id!] ?? "another staff"}
+                              </span>
                             )}
                           </div>
                         </td>
