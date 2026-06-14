@@ -74,6 +74,28 @@ export const updateAppointmentStatus = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { data: appt, error: loadErr } = await context.supabase
+      .from("appointments")
+      .select("assigned_staff_id")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (loadErr) throw new Error(loadErr.message);
+    if (!appt) throw new Error("Appointment not found");
+
+    const { data: isAdmin, error: roleErr } = await context.supabase.rpc("has_any_role", {
+      _user_id: context.userId,
+      _roles: ["super_admin", "admin"],
+    });
+    if (roleErr) throw new Error(roleErr.message);
+
+    if (!isAdmin && appt.assigned_staff_id !== context.userId) {
+      throw new Error(
+        appt.assigned_staff_id
+          ? "Only the assigned staff (or an admin) can change this appointment's status"
+          : "Claim this appointment first before changing its status",
+      );
+    }
+
     const patch: any = { status: data.status };
     const now = new Date().toISOString();
     if (data.status === "checked_in") patch.checked_in_at = now;
