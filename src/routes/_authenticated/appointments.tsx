@@ -362,6 +362,10 @@ function AppointmentsPage() {
                   {visible.map((a) => {
                     const mine = a.assigned_staff_id === user?.id;
                     const isUnassigned = !a.assigned_staff_id;
+                    const canChangeStatus = isAdmin || mine;
+                    const lockTitle = isUnassigned
+                      ? "Claim this appointment first"
+                      : `Assigned to ${staffMap[a.assigned_staff_id!] ?? "another staff member"}`;
                     return (
                       <tr key={a.id} className={`border-t border-border/40 hover:bg-muted/30 ${mine ? "bg-amber-50/40" : ""}`}>
                         <td className="px-3 py-3">
