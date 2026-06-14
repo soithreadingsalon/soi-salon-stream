@@ -133,6 +133,7 @@ function AppointmentsPage() {
     if (p === "today")    { setFrom(todayStr());    setTo(todayStr()); }
     if (p === "tomorrow") { setFrom(tomorrowStr()); setTo(tomorrowStr()); }
     if (p === "week")     { setFrom(todayStr());    setTo(weekEndStr()); }
+    if (p === "next-week"){ setFrom(nextWeekStartStr()); setTo(nextWeekEndStr()); }
     if (p === "all")      { setFrom("");            setTo(""); }
   }
 
