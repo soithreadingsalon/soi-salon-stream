@@ -158,6 +158,20 @@ function AppointmentsPage() {
     }),
   });
 
+  // Always-on watch: new website bookings across ALL dates, so a booking
+  // for tomorrow / next week / yesterday never silently hides behind the
+  // current date filter. Shown as a banner with one-click jump.
+  const { data: pendingWebsite = [] } = useQuery({
+    queryKey: ["appointments-pending-website", envFilter],
+    queryFn: () => list({
+      data: { status: "new", source: "website", environment: envFilter },
+    }),
+    refetchInterval: 30_000,
+  });
+  const pendingOutsideView = (pendingWebsite as Appt[]).filter(
+    (p) => !(appts as Appt[]).some((a) => a.id === p.id),
+  );
+
   const { data: staff = [] } = useQuery({
     queryKey: ["assignable-staff"],
     queryFn: () => staffFn({ data: undefined as any }),
