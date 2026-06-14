@@ -307,17 +307,19 @@ function AppointmentsPage() {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label className="text-xs">Environment</Label>
-            <Select value={envFilter} onValueChange={(v) => setEnvFilter(v as any)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="production">Production</SelectItem>
-                <SelectItem value="test">Test (sandbox)</SelectItem>
-                <SelectItem value="all">All</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {!prodHost && (
+            <div>
+              <Label className="text-xs">Environment</Label>
+              <Select value={envFilter} onValueChange={(v) => setEnvFilter(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="production">Production</SelectItem>
+                  <SelectItem value="test">Test (sandbox)</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <Label className="text-xs">Search</Label>
             <Input placeholder="Name / phone / email" value={search} onChange={(e) => setSearch(e.target.value)} />
