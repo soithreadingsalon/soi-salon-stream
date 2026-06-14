@@ -94,7 +94,7 @@ function weekEndStr() { const d = new Date(); d.setDate(d.getDate() + 6); return
 function nextWeekStartStr() { const d = new Date(); d.setDate(d.getDate() + 7); return fmt(d); }
 function nextWeekEndStr() { const d = new Date(); d.setDate(d.getDate() + 13); return fmt(d); }
 
-type DatePreset = "today" | "tomorrow" | "week" | "all" | "custom";
+type DatePreset = "today" | "tomorrow" | "week" | "next-week" | "all" | "custom";
 
 // Hide the environment toggle on the live production site. Preview/dev keeps it.
 function isProdHost() {
