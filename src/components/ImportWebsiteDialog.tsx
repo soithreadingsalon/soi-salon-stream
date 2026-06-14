@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -108,14 +109,23 @@ export function ImportWebsiteDialog({ open, onOpenChange, onDone }: { open: bool
     if (!f) return;
     setFilename(f.name);
     setResult(null);
-    const text = await f.text();
+    const name = f.name.toLowerCase();
     try {
-      if (f.name.toLowerCase().endsWith(".json") || text.trim().startsWith("[") || text.trim().startsWith("{")) {
-        const parsed = JSON.parse(text);
-        const arr = Array.isArray(parsed) ? parsed : (parsed.appointments ?? parsed.bookings ?? parsed.data ?? parsed.rows ?? []);
-        setRawRows(arr);
+      if (name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".xlsm")) {
+        const buf = await f.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array", cellDates: true });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: "", raw: false });
+        setRawRows(rows);
       } else {
-        setRawRows(parseCsv(text));
+        const text = await f.text();
+        if (name.endsWith(".json") || text.trim().startsWith("[") || text.trim().startsWith("{")) {
+          const parsed = JSON.parse(text);
+          const arr = Array.isArray(parsed) ? parsed : (parsed.appointments ?? parsed.bookings ?? parsed.data ?? parsed.rows ?? []);
+          setRawRows(arr);
+        } else {
+          setRawRows(parseCsv(text));
+        }
       }
     } catch (e: any) {
       toast.error(`Could not parse file: ${e.message}`);
