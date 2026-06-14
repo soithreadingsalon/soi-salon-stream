@@ -533,6 +533,7 @@ function NewAppointmentDialog({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [categoryId, setCategoryId] = useState<string>("__none__");
   const [service, setService] = useState("");
   const [date, setDate] = useState(todayStr());
   const [time, setTime] = useState("10:00");
@@ -540,6 +541,19 @@ function NewAppointmentDialog({
   const [staffId, setStaffId] = useState<string>("__none__");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["service_categories_active"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("service_categories")
+        .select("id, name")
+        .eq("active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -550,14 +564,26 @@ function NewAppointmentDialog({
         <DialogHeader><DialogTitle>New Appointment</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div><Label>Customer name</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
-            <div><Label>Phone</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+            <div><Label>Full Name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+            <div><Label>Phone Number *</Label><Input value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
           </div>
-          <div><Label>Email (optional)</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div><Label>Service</Label><Input value={service} onChange={(e) => setService(e.target.value)} placeholder="e.g. Eyebrow Threading" /></div>
+          <div><Label>Email</Label><Input value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Service Category</Label>
+              <Select value={categoryId} onValueChange={setCategoryId}>
+                <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">—</SelectItem>
+                  {categories.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Service</Label><Input value={service} onChange={(e) => setService(e.target.value)} placeholder="e.g. Eyebrow threading" /></div>
+          </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-            <div><Label>Time</Label><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
+            <div><Label>Preferred Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            <div><Label>Preferred Time</Label><Input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
             <div><Label>Duration (min)</Label><Input type="number" value={duration} onChange={(e) => setDuration(parseInt(e.target.value) || 30)} /></div>
           </div>
           {canAssign && (
@@ -572,9 +598,9 @@ function NewAppointmentDialog({
               </Select>
             </div>
           )}
-          <div><Label>Notes</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+          <div><Label>Notes</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything we should know?" /></div>
           <Button
-            disabled={saving || !name || !phone || !service || !date || !time}
+            disabled={saving || !name || !phone || !date || !time}
             onClick={async () => {
               setSaving(true);
               try {
@@ -582,7 +608,8 @@ function NewAppointmentDialog({
                   customer_name: name,
                   customer_phone: phone,
                   customer_email: email || null,
-                  service_name: service,
+                  service_category_id: categoryId !== "__none__" ? categoryId : null,
+                  service_name: service || null,
                   appointment_date: date,
                   appointment_time: time,
                   duration_minutes: duration,
@@ -591,7 +618,7 @@ function NewAppointmentDialog({
                   booking_source: "manual",
                 });
                 setOpen(false);
-                setName(""); setPhone(""); setEmail(""); setService(""); setNotes("");
+                setName(""); setPhone(""); setEmail(""); setService(""); setNotes(""); setCategoryId("__none__");
               } finally {
                 setSaving(false);
               }

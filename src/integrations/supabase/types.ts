@@ -39,6 +39,7 @@ export type Database = {
           order_id: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          service_category_id: string | null
           service_id: string | null
           service_name: string | null
           started_at: string | null
@@ -70,6 +71,7 @@ export type Database = {
           order_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          service_category_id?: string | null
           service_id?: string | null
           service_name?: string | null
           started_at?: string | null
@@ -101,6 +103,7 @@ export type Database = {
           order_id?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          service_category_id?: string | null
           service_id?: string | null
           service_name?: string | null
           started_at?: string | null
@@ -121,6 +124,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_service_category_id_fkey"
+            columns: ["service_category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
             referencedColumns: ["id"]
           },
           {
@@ -455,6 +465,8 @@ export type Database = {
           no_show_count: number
           notes: string | null
           phone: string | null
+          preferred_service_category_id: string | null
+          preferred_service_name: string | null
           preferred_staff_id: string | null
           total_spend: number
           updated_at: string
@@ -473,6 +485,8 @@ export type Database = {
           no_show_count?: number
           notes?: string | null
           phone?: string | null
+          preferred_service_category_id?: string | null
+          preferred_service_name?: string | null
           preferred_staff_id?: string | null
           total_spend?: number
           updated_at?: string
@@ -491,12 +505,22 @@ export type Database = {
           no_show_count?: number
           notes?: string | null
           phone?: string | null
+          preferred_service_category_id?: string | null
+          preferred_service_name?: string | null
           preferred_staff_id?: string | null
           total_spend?: number
           updated_at?: string
           visit_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customers_preferred_service_category_id_fkey"
+            columns: ["preferred_service_category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customers_deleted: {
         Row: {
