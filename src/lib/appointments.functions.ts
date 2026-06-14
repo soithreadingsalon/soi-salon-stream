@@ -95,12 +95,39 @@ export const assignAppointment = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { data: isAdmin, error: roleErr } = await context.supabase.rpc("has_any_role", {
+      _user_id: context.userId,
+      _roles: ["super_admin", "admin"],
+    });
+    if (roleErr) throw new Error(roleErr.message);
+    if (!isAdmin) throw new Error("Only an admin can assign staff to appointments");
     const { error } = await context.supabase
       .from("appointments")
       .update({ assigned_staff_id: data.staffId, reviewed_by: context.userId, reviewed_at: new Date().toISOString() })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+export const claimAppointment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("appointments")
+      .update({
+        assigned_staff_id: context.userId,
+        reviewed_by: context.userId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", data.id)
+      .is("assigned_staff_id", null)
+      .select("id");
+    if (error) throw new Error(error.message);
+    if (!rows || rows.length === 0) {
+      throw new Error("This appointment was already claimed by someone else");
+    }
+    return { ok: true, staffId: context.userId };
   });
 
 export const linkAppointmentToOrder = createServerFn({ method: "POST" })
