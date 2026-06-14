@@ -272,6 +272,28 @@ function AppointmentsPage() {
         </div>
       </div>
 
+      {pendingOutsideView.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div>
+            <strong>{pendingOutsideView.length}</strong> new website booking
+            {pendingOutsideView.length === 1 ? "" : "s"} outside your current date filter.
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setDatePreset("all");
+              setFrom("");
+              setTo("");
+              setStatusFilter("new");
+              setSourceFilter("website");
+            }}
+          >
+            Show them
+          </Button>
+        </div>
+      )}
+
       {/* Summary cards (reflect current filter + mine toggle) */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="New website bookings" value={newWebsite.length} accent="bg-amber-50" />
@@ -280,6 +302,7 @@ function AppointmentsPage() {
         <StatCard label="Completed" value={completedToday.length} accent="bg-neutral-50" />
         <StatCard label="Unassigned" value={unassigned.length} accent="bg-rose-50" />
       </div>
+
 
       {/* Quick date chips */}
       <div className="flex flex-wrap items-center gap-2">
