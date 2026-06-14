@@ -46,6 +46,15 @@ export const Route = createFileRoute("/api/public/website-appointment")({
           });
         }
 
+        // Auto-detect environment from hostname:
+        // - *-dev.lovable.app or *.lovableproject.com → "test" (sandbox)
+        // - anything else (custom domain, prod *.lovable.app) → "production"
+        const host = (request.headers.get("host") ?? "").toLowerCase();
+        const environment =
+          host.includes("-dev.lovable.app") || host.endsWith(".lovableproject.com")
+            ? "test"
+            : "production";
+
         let payload: z.infer<typeof schema>;
         try {
           payload = schema.parse(JSON.parse(body));
