@@ -13,6 +13,7 @@ export const listAppointments = createServerFn({ method: "POST" })
       status: z.string().optional(),
       staffId: z.string().uuid().optional().nullable(),
       source: z.string().optional(),
+      environment: z.enum(["production", "test", "all"]).optional(),
       search: z.string().optional(),
     }).parse(d ?? {}),
   )
@@ -24,6 +25,9 @@ export const listAppointments = createServerFn({ method: "POST" })
     if (data.staffId === null) q = q.is("assigned_staff_id", null);
     else if (data.staffId) q = q.eq("assigned_staff_id", data.staffId);
     if (data.source) q = q.eq("booking_source", data.source);
+    // default: hide test bookings unless explicitly requested
+    if (!data.environment || data.environment === "production") q = q.eq("environment", "production");
+    else if (data.environment === "test") q = q.eq("environment", "test");
     if (data.search) {
       const s = `%${data.search}%`;
       q = q.or(`customer_name.ilike.${s},customer_phone.ilike.${s},customer_email.ilike.${s}`);
