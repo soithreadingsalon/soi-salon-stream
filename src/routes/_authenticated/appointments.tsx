@@ -101,6 +101,7 @@ function AppointmentsPage() {
   const [to, setTo] = useState(todayStr());
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [envFilter, setEnvFilter] = useState<"production" | "test" | "all">("production");
   const [search, setSearch] = useState("");
 
   const list = useServerFn(listAppointments);
@@ -110,12 +111,13 @@ function AppointmentsPage() {
   const createFn = useServerFn(createAppointment);
 
   const { data: appts = [], isLoading } = useQuery({
-    queryKey: ["appointments", from, to, statusFilter, sourceFilter, search],
+    queryKey: ["appointments", from, to, statusFilter, sourceFilter, envFilter, search],
     queryFn: () => list({
       data: {
         from, to,
         status: statusFilter !== "all" ? statusFilter : undefined,
         source: sourceFilter !== "all" ? sourceFilter : undefined,
+        environment: envFilter,
         search: search || undefined,
       },
     }),
