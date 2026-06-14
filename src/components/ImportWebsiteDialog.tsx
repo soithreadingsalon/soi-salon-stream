@@ -164,7 +164,7 @@ export function ImportWebsiteDialog({ open, onOpenChange, onDone }: { open: bool
           </p>
           <div className="space-y-1.5">
             <Label>File (CSV or JSON)</Label>
-            <Input type="file" accept=".csv,.json,text/csv,application/json" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
+            <Input type="file" accept=".csv,.json,.xlsx,.xls,.xlsm,text/csv,application/json,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(e) => onFile(e.target.files?.[0] ?? null)} />
             {filename && <p className="text-xs text-muted-foreground">{filename} — {mapped.length} valid row(s) found</p>}
           </div>
 
