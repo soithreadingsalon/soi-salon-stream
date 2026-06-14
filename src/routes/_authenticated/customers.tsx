@@ -11,11 +11,12 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Search, Trash2, Upload } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { listCustomersForExport } from "@/lib/customers.functions";
+import { ImportWebsiteDialog } from "@/components/ImportWebsiteDialog";
 
 export const Route = createFileRoute("/_authenticated/customers")({
   component: CustomersPage,
@@ -42,6 +43,7 @@ function CustomersPage() {
   const [editing, setEditing] = useState<any | null>(null);
   const [deleting, setDeleting] = useState<any | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const exportFn = useServerFn(listCustomersForExport);
 
   const { data = [] } = useQuery({
@@ -129,9 +131,14 @@ function CustomersPage() {
         </div>
         <div className="flex gap-2">
           {canExport && (
-            <Button variant="outline" onClick={handleExport} disabled={exporting}>
-              <Download className="mr-2 h-4 w-4" /> {exporting ? "Exporting…" : "Export CSV"}
-            </Button>
+            <>
+              <Button variant="outline" onClick={() => setImportOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" /> Import from Website
+              </Button>
+              <Button variant="outline" onClick={handleExport} disabled={exporting}>
+                <Download className="mr-2 h-4 w-4" /> {exporting ? "Exporting…" : "Export CSV"}
+              </Button>
+            </>
           )}
           <Button onClick={() => { setEditing(null); setOpen(true); }} className="bg-primary text-primary-foreground hover:bg-primary/90">
             <Plus className="mr-2 h-4 w-4" /> New customer
@@ -196,6 +203,12 @@ function CustomersPage() {
         editing={editing}
         userId={user!.id}
         onSaved={() => qc.invalidateQueries({ queryKey: ["customers"] })}
+      />
+
+      <ImportWebsiteDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onDone={() => qc.invalidateQueries({ queryKey: ["customers"] })}
       />
 
       {deleting && (

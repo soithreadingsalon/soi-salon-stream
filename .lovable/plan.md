@@ -1,73 +1,47 @@
-# Unify Website Booking → Appointment → Customer
+# Import existing website appointments
 
-Make one shared set of fields flow end-to-end so every website booking automatically becomes (a) an appointment **and** (b) a customer record, with the manual Appointment and Customer forms aligned to the same fields.
+You will upload a CSV or JSON export from soithreadingandsalon.com. I'll build a one-time importer in the POS that creates customer records and backfills historical appointments, defaulting marketing opt-in to true.
 
-## Shared field set (single source of truth)
+## 1. Upload format
 
-Taken from the website booking form:
+I'll accept any of these column/key names (case-insensitive, extra columns ignored):
 
-| Field | Required | Notes |
-|---|---|---|
-| Full Name | yes | |
-| Phone Number | yes | |
-| Email | no | |
-| Service Category | no | dropdown from `service_categories` |
-| Service | no | free text (matches website) |
-| Preferred Date | appt only | |
-| Preferred Time | appt only | |
-| Notes | no | |
-| Marketing opt-in | no | customer-level toggle, defaults `true` for website bookings |
+- **Full Name** — `full_name` / `name` / `customer_name` (required)
+- **Phone** — `phone` / `phone_number` (required)
+- **Email** — `email`
+- **Service Category** — `service_category` / `category` (matched to existing categories by name or slug)
+- **Service** — `service` / `service_name`
+- **Date** — `appointment_date` / `date` (any parseable format)
+- **Time** — `appointment_time` / `time`
+- **Notes** — `notes` / `message`
+- **External ID** — `id` / `booking_id` (used for dedup so re-runs don't duplicate)
 
-Date/time only live on the appointment. Everything else lives on **both** the appointment and the customer.
+Rows missing date/time → customer-only (still imported into Customers tab).
 
-## 1. Schema additions
+## 2. Importer UI
 
-Migration `align_customer_appointment_fields`:
+New **Import from Website** button on the Customers tab (admin/manager only):
+- Drag-drop CSV or JSON file
+- Preview first 10 rows + column mapping confirmation
+- "Run import" → shows progress + summary (created / merged / skipped / errors)
+- Imported customers tagged with `notes` prefix `[website import]` so they're filterable
+- Marketing opt-in defaults to true
 
-```sql
-ALTER TABLE public.customers
-  ADD COLUMN preferred_service_category_id uuid REFERENCES public.service_categories(id),
-  ADD COLUMN preferred_service_name text;
+## 3. Server logic
 
-ALTER TABLE public.appointments
-  ADD COLUMN service_category_id uuid REFERENCES public.service_categories(id);
--- service_name, customer_name/phone/email, notes already exist
-```
+New server fn `importWebsiteAppointments({ rows })`:
+- For each row: resolve `service_category_id` (lookup by slug/name), then call existing `upsertCustomerFromAppointment` (phone-tail → email match, fills blanks, creates if new).
+- If date+time present: also insert an `appointments` row with `booking_source='website'`, `external_source='website_import'`, `external_booking_id=<row id>`, `environment='production'`, `status='completed'` (historical). Dedup on `(external_source, external_booking_id, environment)` — re-running is safe.
+- Returns counts: `{ customers_created, customers_merged, appointments_created, appointments_skipped, errors:[{row, message}] }`.
 
-Plus a backfill block that, for every existing appointment with `customer_id IS NULL`, matches an existing customer by phone (digits-only last 7) or email, creates one when no match, and links it back to the appointment.
+## 4. Files
 
-## 2. Auto-create / merge customer on every appointment
-
-A new server helper `upsertCustomerFromAppointment(payload)` is called from:
-
-- `src/routes/api/public/website-appointment.ts` (website POST)
-- `src/lib/appointments.functions.ts` → `createAppointment` (manual entry from Appointments tab)
-
-Logic:
-1. Match by phone (digits-only last 7) → else by email.
-2. If found: fill in any blank fields (email, preferred category/service, notes append), keep existing values otherwise.
-3. If not found: insert customer with all shared fields; `marketing_opt_in = true` for website bookings, follows form toggle for manual.
-4. Set `appointment.customer_id` to the resulting customer id.
-
-## 3. UI alignment
-
-**Appointments tab — New / Edit appointment dialog** (`src/routes/_authenticated/appointments.tsx`):
-- Reorder/relabel fields to match the website form exactly: Full Name*, Phone*, Email, Service Category (dropdown), Service, Preferred Date, Preferred Time, Notes.
-- Submitting calls `createAppointment`, which auto-creates/merges the customer.
-
-**Customers tab — New / Edit customer dialog** (`src/routes/_authenticated/customers.tsx`):
-- Replace current fields with the shared set: Full Name*, Phone*, Email, Service Category, Service, Notes, Marketing opt-in. Keep Birthday and Allergies as optional extras (existing data).
-- Add an **Export CSV** button (admin/manager) downloading: full_name, phone, email, preferred_service_category, preferred_service_name, marketing_opt_in, last_visit_at, visit_count, total_spend, notes, created_at — for marketing campaigns on external platforms.
-
-## 4. Files changed
-
-- `supabase/migrations/<new>.sql` — schema + backfill
-- `src/lib/customers.functions.ts` (new) — `upsertCustomerFromAppointment`, `listCustomersForExport`
-- `src/lib/appointments.functions.ts` — call upsert in `createAppointment`; accept `service_category_id`
-- `src/routes/api/public/website-appointment.ts` — accept `service_category` (slug or name → id), call upsert, store on appointment
-- `src/routes/_authenticated/appointments.tsx` — aligned New/Edit dialog
-- `src/routes/_authenticated/customers.tsx` — aligned New/Edit dialog + Export CSV button
+- `src/lib/website-import.functions.ts` (new) — `importWebsiteAppointments` server fn, admin/manager only
+- `src/routes/_authenticated/customers.tsx` — add **Import from Website** button + dialog with file picker, preview, run, summary
+- No schema changes (existing `customers` + `appointments` columns cover everything; dedup already supported via `external_booking_id`)
 
 ## Out of scope
-- Changing the public website HTML (already has the right fields; we just consume them).
-- Sending campaigns in-app (export-only, as requested).
+- Live sync with the website (this is a one-time historical pull — the existing webhook keeps new bookings flowing in)
+- Scraping the public site
+
+Please upload the export file when ready (CSV preferred). If you share a sample first, I can confirm the column mapping before building.
