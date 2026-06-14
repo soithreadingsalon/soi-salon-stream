@@ -54,6 +54,7 @@ type Appt = {
   checked_in_at: string | null;
   order_id: string | null;
   created_at: string;
+  environment: string;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -100,6 +101,7 @@ function AppointmentsPage() {
   const [to, setTo] = useState(todayStr());
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [envFilter, setEnvFilter] = useState<"production" | "test" | "all">("production");
   const [search, setSearch] = useState("");
 
   const list = useServerFn(listAppointments);
@@ -109,12 +111,13 @@ function AppointmentsPage() {
   const createFn = useServerFn(createAppointment);
 
   const { data: appts = [], isLoading } = useQuery({
-    queryKey: ["appointments", from, to, statusFilter, sourceFilter, search],
+    queryKey: ["appointments", from, to, statusFilter, sourceFilter, envFilter, search],
     queryFn: () => list({
       data: {
         from, to,
         status: statusFilter !== "all" ? statusFilter : undefined,
         source: sourceFilter !== "all" ? sourceFilter : undefined,
+        environment: envFilter,
         search: search || undefined,
       },
     }),
@@ -189,7 +192,7 @@ function AppointmentsPage() {
 
       {/* Filters */}
       <Card className="border-border/60 shadow-soft">
-        <CardContent className="grid gap-3 p-4 md:grid-cols-5">
+        <CardContent className="grid gap-3 p-4 md:grid-cols-6">
           <div>
             <Label className="text-xs">From</Label>
             <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -218,6 +221,17 @@ function AppointmentsPage() {
                 <SelectItem value="pos">POS</SelectItem>
                 <SelectItem value="walk_in">Walk-In</SelectItem>
                 <SelectItem value="manual">Manual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs">Environment</Label>
+            <Select value={envFilter} onValueChange={(v) => setEnvFilter(v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="production">Production</SelectItem>
+                <SelectItem value="test">Test (sandbox)</SelectItem>
+                <SelectItem value="all">All</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -262,7 +276,12 @@ function AppointmentsPage() {
                           <div className="text-xs text-muted-foreground">{a.appointment_time.slice(0,5)} · {a.duration_minutes}m</div>
                         </td>
                         <td className="px-3 py-2">
-                          <div className="font-medium">{a.customer_name}</div>
+                          <div className="flex items-center gap-1.5 font-medium">
+                            {a.customer_name}
+                            {a.environment === "test" && (
+                              <Badge className="bg-purple-600 text-white">TEST</Badge>
+                            )}
+                          </div>
                           <div className="text-xs text-muted-foreground">{a.customer_phone}</div>
                         </td>
                         <td className="px-3 py-2">{a.service_name ?? "—"}</td>

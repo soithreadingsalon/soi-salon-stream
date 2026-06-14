@@ -29,6 +29,7 @@ export type Database = {
           customer_name: string
           customer_phone: string | null
           duration_minutes: number
+          environment: string
           external_booking_id: string | null
           external_source: string | null
           id: string
@@ -59,6 +60,7 @@ export type Database = {
           customer_name: string
           customer_phone?: string | null
           duration_minutes?: number
+          environment?: string
           external_booking_id?: string | null
           external_source?: string | null
           id?: string
@@ -89,6 +91,7 @@ export type Database = {
           customer_name?: string
           customer_phone?: string | null
           duration_minutes?: number
+          environment?: string
           external_booking_id?: string | null
           external_source?: string | null
           id?: string

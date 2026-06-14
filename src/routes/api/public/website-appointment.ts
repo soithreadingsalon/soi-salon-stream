@@ -46,6 +46,15 @@ export const Route = createFileRoute("/api/public/website-appointment")({
           });
         }
 
+        // Auto-detect environment from hostname:
+        // - *-dev.lovable.app or *.lovableproject.com → "test" (sandbox)
+        // - anything else (custom domain, prod *.lovable.app) → "production"
+        const host = (request.headers.get("host") ?? "").toLowerCase();
+        const environment =
+          host.includes("-dev.lovable.app") || host.endsWith(".lovableproject.com")
+            ? "test"
+            : "production";
+
         let payload: z.infer<typeof schema>;
         try {
           payload = schema.parse(JSON.parse(body));
@@ -57,16 +66,17 @@ export const Route = createFileRoute("/api/public/website-appointment")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        // dedup on external_booking_id
+        // dedup on external_booking_id (scoped to environment so test+prod don't collide)
         if (payload.external_booking_id) {
           const { data: existing } = await supabaseAdmin
             .from("appointments")
             .select("id")
             .eq("external_source", payload.external_source ?? "website")
             .eq("external_booking_id", payload.external_booking_id)
+            .eq("environment", environment)
             .maybeSingle();
           if (existing) {
-            return new Response(JSON.stringify({ ok: true, appointment_id: existing.id, deduped: true }), {
+            return new Response(JSON.stringify({ ok: true, appointment_id: existing.id, deduped: true, environment }), {
               status: 200, headers: corsHeaders(),
             });
           }
@@ -97,6 +107,7 @@ export const Route = createFileRoute("/api/public/website-appointment")({
             external_source: payload.external_source ?? "website",
             external_booking_id: payload.external_booking_id ?? null,
             status: "new",
+            environment,
             sync_status: "synced",
             last_synced_at: new Date().toISOString(),
           })
@@ -107,7 +118,7 @@ export const Route = createFileRoute("/api/public/website-appointment")({
           return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders() });
         }
 
-        return new Response(JSON.stringify({ ok: true, appointment_id: row.id }), {
+        return new Response(JSON.stringify({ ok: true, appointment_id: row.id, environment }), {
           status: 200, headers: corsHeaders(),
         });
       },
