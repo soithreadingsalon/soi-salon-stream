@@ -118,7 +118,7 @@ export const Route = createFileRoute("/api/public/website-appointment")({
           return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders() });
         }
 
-        return new Response(JSON.stringify({ ok: true, appointment_id: row.id }), {
+        return new Response(JSON.stringify({ ok: true, appointment_id: row.id, environment }), {
           status: 200, headers: corsHeaders(),
         });
       },
