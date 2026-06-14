@@ -205,6 +205,12 @@ function CustomersPage() {
         onSaved={() => qc.invalidateQueries({ queryKey: ["customers"] })}
       />
 
+      <ImportWebsiteDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onDone={() => qc.invalidateQueries({ queryKey: ["customers"] })}
+      />
+
       {deleting && (
         <ConfirmDeleteDialog
           open={!!deleting}
