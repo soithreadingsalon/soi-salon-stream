@@ -94,6 +94,13 @@ function weekEndStr() { const d = new Date(); d.setDate(d.getDate() + 6); return
 
 type DatePreset = "today" | "tomorrow" | "week" | "all" | "custom";
 
+// Hide the environment toggle on the live production site. Preview/dev keeps it.
+function isProdHost() {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname.toLowerCase();
+  return h === "pos.soithreadingandsalon.com" || h === "soi-salon-stream.lovable.app";
+}
+
 function AppointmentsPage() {
   const { user } = useAuth();
   const { isAdmin } = usePermissions();
