@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { upsertCustomerFromAppointment } from "@/lib/customers.functions";
 
 const dateLike = z.string().min(1);
 
