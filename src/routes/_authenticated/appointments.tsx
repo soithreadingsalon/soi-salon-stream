@@ -54,6 +54,7 @@ type Appt = {
   checked_in_at: string | null;
   order_id: string | null;
   created_at: string;
+  environment: string;
 };
 
 const STATUS_LABEL: Record<string, string> = {
