@@ -421,7 +421,7 @@ function AppointmentsPage() {
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-1.5 font-medium">
                             {a.customer_name}
-                            {!prodHost && a.environment === "test" && (
+                            {a.environment === "test" && (
                               <Badge className="bg-purple-600 text-white">TEST</Badge>
                             )}
                           </div>
