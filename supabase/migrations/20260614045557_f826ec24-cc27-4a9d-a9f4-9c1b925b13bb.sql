@@ -1,0 +1,1 @@
+DELETE FROM public.appointments WHERE customer_name = 'Test' AND environment = 'production';
