@@ -276,7 +276,12 @@ function AppointmentsPage() {
                           <div className="text-xs text-muted-foreground">{a.appointment_time.slice(0,5)} · {a.duration_minutes}m</div>
                         </td>
                         <td className="px-3 py-2">
-                          <div className="font-medium">{a.customer_name}</div>
+                          <div className="flex items-center gap-1.5 font-medium">
+                            {a.customer_name}
+                            {a.environment === "test" && (
+                              <Badge className="bg-purple-600 text-white">TEST</Badge>
+                            )}
+                          </div>
                           <div className="text-xs text-muted-foreground">{a.customer_phone}</div>
                         </td>
                         <td className="px-3 py-2">{a.service_name ?? "—"}</td>
