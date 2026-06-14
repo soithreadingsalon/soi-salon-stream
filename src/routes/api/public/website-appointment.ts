@@ -6,6 +6,7 @@ const schema = z.object({
   customer_name: z.string().min(1).max(120),
   customer_phone: z.string().min(1).max(40),
   customer_email: z.string().email().max(160).optional().nullable(),
+  service_category: z.string().max(80).optional().nullable(), // slug OR name OR uuid
   service_name: z.string().min(1).max(160),
   appointment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   appointment_time: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
@@ -53,9 +54,6 @@ export const Route = createFileRoute("/api/public/website-appointment")({
           });
         }
 
-        // Auto-detect environment from hostname:
-        // - *-dev.lovable.app or *.lovableproject.com → "test" (sandbox)
-        // - anything else (custom domain, prod *.lovable.app) → "production"
         const host = (request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "").toLowerCase();
         const environment =
           host.includes("-dev.lovable.app") ||
@@ -75,6 +73,7 @@ export const Route = createFileRoute("/api/public/website-appointment")({
         }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { upsertCustomerFromAppointment } = await import("@/lib/customers.functions");
 
         // dedup on external_booking_id (scoped to environment so test+prod don't collide)
         if (payload.external_booking_id) {
@@ -92,14 +91,36 @@ export const Route = createFileRoute("/api/public/website-appointment")({
           }
         }
 
-        // fuzzy-match customer by phone (digits only)
-        const phoneDigits = payload.customer_phone.replace(/\D/g, "");
-        let customer_id: string | null = null;
-        if (phoneDigits.length >= 7) {
-          const { data: cust } = await supabaseAdmin
-            .from("customers").select("id").ilike("phone", `%${phoneDigits.slice(-7)}%`).limit(1).maybeSingle();
-          if (cust) customer_id = cust.id;
+        // Resolve service category: accept slug, name, or uuid
+        let service_category_id: string | null = null;
+        if (payload.service_category) {
+          const raw = payload.service_category.trim();
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+          if (isUuid) {
+            const { data } = await supabaseAdmin.from("service_categories").select("id").eq("id", raw).maybeSingle();
+            if (data) service_category_id = data.id;
+          } else {
+            const { data } = await supabaseAdmin
+              .from("service_categories")
+              .select("id")
+              .or(`slug.ilike.${raw},name.ilike.${raw}`)
+              .limit(1)
+              .maybeSingle();
+            if (data) service_category_id = data.id;
+          }
         }
+
+        // Match-or-create customer (website bookings default to marketing opt-in)
+        const customer_id = await upsertCustomerFromAppointment(supabaseAdmin, {
+          full_name: payload.customer_name,
+          phone: payload.customer_phone,
+          email: payload.customer_email,
+          service_category_id,
+          service_name: payload.service_name,
+          notes: payload.notes,
+          marketing_opt_in: true,
+          created_by: null,
+        });
 
         const { data: row, error } = await supabaseAdmin
           .from("appointments")
@@ -109,6 +130,7 @@ export const Route = createFileRoute("/api/public/website-appointment")({
             customer_phone: payload.customer_phone,
             customer_email: payload.customer_email ?? null,
             service_name: payload.service_name,
+            service_category_id,
             appointment_date: payload.appointment_date,
             appointment_time: payload.appointment_time,
             duration_minutes: payload.duration_minutes ?? 30,
@@ -128,7 +150,7 @@ export const Route = createFileRoute("/api/public/website-appointment")({
           return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders() });
         }
 
-        return new Response(JSON.stringify({ ok: true, appointment_id: row.id, environment }), {
+        return new Response(JSON.stringify({ ok: true, appointment_id: row.id, customer_id, environment }), {
           status: 200, headers: corsHeaders(),
         });
       },
