@@ -66,16 +66,17 @@ export const Route = createFileRoute("/api/public/website-appointment")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        // dedup on external_booking_id
+        // dedup on external_booking_id (scoped to environment so test+prod don't collide)
         if (payload.external_booking_id) {
           const { data: existing } = await supabaseAdmin
             .from("appointments")
             .select("id")
             .eq("external_source", payload.external_source ?? "website")
             .eq("external_booking_id", payload.external_booking_id)
+            .eq("environment", environment)
             .maybeSingle();
           if (existing) {
-            return new Response(JSON.stringify({ ok: true, appointment_id: existing.id, deduped: true }), {
+            return new Response(JSON.stringify({ ok: true, appointment_id: existing.id, deduped: true, environment }), {
               status: 200, headers: corsHeaders(),
             });
           }
