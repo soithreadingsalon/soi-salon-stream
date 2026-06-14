@@ -91,8 +91,10 @@ function fmt(d: Date) {
 function todayStr() { return fmt(new Date()); }
 function tomorrowStr() { const d = new Date(); d.setDate(d.getDate() + 1); return fmt(d); }
 function weekEndStr() { const d = new Date(); d.setDate(d.getDate() + 6); return fmt(d); }
+function nextWeekStartStr() { const d = new Date(); d.setDate(d.getDate() + 7); return fmt(d); }
+function nextWeekEndStr() { const d = new Date(); d.setDate(d.getDate() + 13); return fmt(d); }
 
-type DatePreset = "today" | "tomorrow" | "week" | "all" | "custom";
+type DatePreset = "today" | "tomorrow" | "week" | "next-week" | "all" | "custom";
 
 // Hide the environment toggle on the live production site. Preview/dev keeps it.
 function isProdHost() {
@@ -131,6 +133,7 @@ function AppointmentsPage() {
     if (p === "today")    { setFrom(todayStr());    setTo(todayStr()); }
     if (p === "tomorrow") { setFrom(tomorrowStr()); setTo(tomorrowStr()); }
     if (p === "week")     { setFrom(todayStr());    setTo(weekEndStr()); }
+    if (p === "next-week"){ setFrom(nextWeekStartStr()); setTo(nextWeekEndStr()); }
     if (p === "all")      { setFrom("");            setTo(""); }
   }
 
@@ -270,6 +273,7 @@ function AppointmentsPage() {
         {presetBtn("today", "Today")}
         {presetBtn("tomorrow", "Tomorrow")}
         {presetBtn("week", "This week")}
+        {presetBtn("next-week", "Next week")}
         {presetBtn("all", "All dates")}
       </div>
 
