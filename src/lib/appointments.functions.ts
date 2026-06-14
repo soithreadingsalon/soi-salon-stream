@@ -47,6 +47,7 @@ export const createAppointment = createServerFn({ method: "POST" })
       customer_phone: z.string().max(40).optional().nullable(),
       customer_email: z.string().email().max(160).optional().nullable(),
       service_id: z.string().uuid().optional().nullable(),
+      service_category_id: z.string().uuid().optional().nullable(),
       service_name: z.string().max(160).optional().nullable(),
       appointment_date: dateLike,
       appointment_time: z.string().min(1),
@@ -54,12 +55,28 @@ export const createAppointment = createServerFn({ method: "POST" })
       assigned_staff_id: z.string().uuid().optional().nullable(),
       notes: z.string().max(2000).optional().nullable(),
       booking_source: z.enum(["manual", "pos", "walk_in", "website"]).optional(),
+      marketing_opt_in: z.boolean().optional(),
     }).parse(d),
   )
   .handler(async ({ data, context }) => {
+    // Match-or-create customer so the booking always shows up in Customers tab
+    let customer_id = data.customer_id ?? null;
+    if (!customer_id) {
+      customer_id = await upsertCustomerFromAppointment(context.supabase, {
+        full_name: data.customer_name,
+        phone: data.customer_phone,
+        email: data.customer_email,
+        service_category_id: data.service_category_id,
+        service_name: data.service_name,
+        notes: data.notes,
+        marketing_opt_in: data.marketing_opt_in ?? false,
+        created_by: context.userId,
+      });
+    }
+    const { marketing_opt_in: _moi, ...insertData } = data;
     const { data: row, error } = await context.supabase
       .from("appointments")
-      .insert({ ...data, booking_source: data.booking_source ?? "manual", status: "new" })
+      .insert({ ...insertData, customer_id, booking_source: data.booking_source ?? "manual", status: "new" })
       .select("*")
       .single();
     if (error) throw new Error(error.message);
