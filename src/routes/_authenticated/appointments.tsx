@@ -467,12 +467,7 @@ function AppointmentsPage() {
                                 <UserCheck className="mr-1 h-3 w-3" />Check In
                               </Button>
                             )}
-                            {canCheckin && a.status === "checked_in" && (
-                              <Button size="sm" variant="outline" disabled={!canChangeStatus} title={!canChangeStatus ? lockTitle : undefined} onClick={() => statusMut.mutate({ id: a.id, status: "in_service" })}>
-                                <Play className="mr-1 h-3 w-3" />Start
-                              </Button>
-                            )}
-                            {["new","confirmed","checked_in","in_service"].includes(a.status) && (
+                            {["new","confirmed","checked_in"].includes(a.status) && (
                               <Button size="sm" disabled={!canChangeStatus} title={!canChangeStatus ? lockTitle : undefined} onClick={() => statusMut.mutate({ id: a.id, status: "completed" })}>
                                 <Check className="mr-1 h-3 w-3" />Complete
                               </Button>
