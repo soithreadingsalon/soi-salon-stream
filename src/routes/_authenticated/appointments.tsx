@@ -293,10 +293,8 @@ function AppointmentsPage() {
       )}
 
       {/* Summary cards (reflect current filter + mine toggle) */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="New website bookings" value={newWebsite.length} accent="bg-amber-50" />
-        <StatCard label="Waiting" value={waiting.length} accent="bg-orange-50" />
-        <StatCard label="In service" value={inService.length} accent="bg-emerald-50" />
         <StatCard label="Completed" value={completedToday.length} accent="bg-neutral-50" />
         <StatCard label="Unassigned" value={unassigned.length} accent="bg-rose-50" />
       </div>
