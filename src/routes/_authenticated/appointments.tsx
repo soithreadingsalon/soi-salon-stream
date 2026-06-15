@@ -215,8 +215,6 @@ function AppointmentsPage() {
 
   // Counters reflect what the user actually sees (live via realtime + invalidation)
   const newWebsite     = visible.filter((a) => a.status === "new" && a.booking_source === "website");
-  const waiting        = visible.filter((a) => a.status === "checked_in" || a.status === "waiting");
-  const inService      = visible.filter((a) => a.status === "in_service");
   const completedToday = visible.filter((a) => a.status === "completed");
   const unassigned     = visible.filter((a) => !a.assigned_staff_id && !["completed", "cancelled", "no_show"].includes(a.status));
 
