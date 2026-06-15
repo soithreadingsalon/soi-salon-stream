@@ -35,7 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "sonner";
-import { Plus, UserCheck, Play, Check, X, AlertCircle, Hand } from "lucide-react";
+import { Plus, UserCheck, Check, X, AlertCircle, Hand } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/appointments")({
   component: AppointmentsPage,
