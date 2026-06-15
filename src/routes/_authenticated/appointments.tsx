@@ -123,10 +123,8 @@ function AppointmentsPage() {
   const prodHost = isProdHost();
   useEffect(() => { if (prodHost) setEnvFilter("production"); }, [prodHost]);
   const [search, setSearch] = useState("");
-  // Default: non-admin staff see only their own appointments
-  const [mineOnly, setMineOnly] = useState<boolean>(!isAdmin);
-
-  useEffect(() => { setMineOnly(!isAdmin); }, [isAdmin]);
+  // Default: show everything; staff can opt in to "mine only"
+  const [mineOnly, setMineOnly] = useState<boolean>(false);
 
   function applyPreset(p: DatePreset) {
     setDatePreset(p);
