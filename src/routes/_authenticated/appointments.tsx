@@ -35,7 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
 import { usePermissions } from "@/hooks/use-permissions";
 import { toast } from "sonner";
-import { Plus, UserCheck, Play, Check, X, AlertCircle, Hand } from "lucide-react";
+import { Plus, UserCheck, Check, X, AlertCircle, Hand } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/appointments")({
   component: AppointmentsPage,
@@ -123,10 +123,8 @@ function AppointmentsPage() {
   const prodHost = isProdHost();
   useEffect(() => { if (prodHost) setEnvFilter("production"); }, [prodHost]);
   const [search, setSearch] = useState("");
-  // Default: non-admin staff see only their own appointments
-  const [mineOnly, setMineOnly] = useState<boolean>(!isAdmin);
-
-  useEffect(() => { setMineOnly(!isAdmin); }, [isAdmin]);
+  // Default: show everything; staff can opt in to "mine only"
+  const [mineOnly, setMineOnly] = useState<boolean>(false);
 
   function applyPreset(p: DatePreset) {
     setDatePreset(p);
@@ -217,8 +215,6 @@ function AppointmentsPage() {
 
   // Counters reflect what the user actually sees (live via realtime + invalidation)
   const newWebsite     = visible.filter((a) => a.status === "new" && a.booking_source === "website");
-  const waiting        = visible.filter((a) => a.status === "checked_in" || a.status === "waiting");
-  const inService      = visible.filter((a) => a.status === "in_service");
   const completedToday = visible.filter((a) => a.status === "completed");
   const unassigned     = visible.filter((a) => !a.assigned_staff_id && !["completed", "cancelled", "no_show"].includes(a.status));
 
@@ -295,10 +291,8 @@ function AppointmentsPage() {
       )}
 
       {/* Summary cards (reflect current filter + mine toggle) */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="New website bookings" value={newWebsite.length} accent="bg-amber-50" />
-        <StatCard label="Waiting" value={waiting.length} accent="bg-orange-50" />
-        <StatCard label="In service" value={inService.length} accent="bg-emerald-50" />
         <StatCard label="Completed" value={completedToday.length} accent="bg-neutral-50" />
         <StatCard label="Unassigned" value={unassigned.length} accent="bg-rose-50" />
       </div>
@@ -471,12 +465,7 @@ function AppointmentsPage() {
                                 <UserCheck className="mr-1 h-3 w-3" />Check In
                               </Button>
                             )}
-                            {canCheckin && a.status === "checked_in" && (
-                              <Button size="sm" variant="outline" disabled={!canChangeStatus} title={!canChangeStatus ? lockTitle : undefined} onClick={() => statusMut.mutate({ id: a.id, status: "in_service" })}>
-                                <Play className="mr-1 h-3 w-3" />Start
-                              </Button>
-                            )}
-                            {["new","confirmed","checked_in","in_service"].includes(a.status) && (
+                            {["new","confirmed","checked_in"].includes(a.status) && (
                               <Button size="sm" disabled={!canChangeStatus} title={!canChangeStatus ? lockTitle : undefined} onClick={() => statusMut.mutate({ id: a.id, status: "completed" })}>
                                 <Check className="mr-1 h-3 w-3" />Complete
                               </Button>
