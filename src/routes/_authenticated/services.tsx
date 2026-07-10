@@ -56,19 +56,13 @@ function ServicesAdmin() {
   };
 
   const softDel = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("soft_delete_service", { _id: id });
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await softDelSvc({ data: { id } }); },
     onSuccess: () => { toast.success("Moved to Recycle Bin"); invalidate(); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const hardDel = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("hard_delete_service", { _id: id });
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await hardDelSvc({ data: { id } }); },
     onSuccess: () => { toast.success("Service permanently deleted"); invalidate(); },
     onError: (e: any) => toast.error(e.message),
   });
