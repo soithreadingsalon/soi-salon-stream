@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { listCustomersForExport } from "@/lib/customers.functions";
+import { softDeleteCustomerFn, hardDeleteCustomerFn } from "@/lib/admin-recycle.functions";
 import { ImportWebsiteDialog } from "@/components/ImportWebsiteDialog";
 
 export const Route = createFileRoute("/_authenticated/customers")({
@@ -45,6 +46,8 @@ function CustomersPage() {
   const [exporting, setExporting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const exportFn = useServerFn(listCustomersForExport);
+  const softDelCustomer = useServerFn(softDeleteCustomerFn);
+  const hardDelCustomer = useServerFn(hardDeleteCustomerFn);
 
   const { data = [] } = useQuery({
     queryKey: ["customers", q],
@@ -68,8 +71,7 @@ function CustomersPage() {
 
   const softDel = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("soft_delete_customer", { _id: id });
-      if (error) throw error;
+      await softDelCustomer({ data: { id } });
     },
     onSuccess: () => { toast.success("Moved to Recycle Bin"); qc.invalidateQueries({ queryKey: ["customers"] }); },
     onError: (e: any) => toast.error(e.message),
@@ -77,8 +79,7 @@ function CustomersPage() {
 
   const hardDel = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("hard_delete_customer", { _id: id });
-      if (error) throw error;
+      await hardDelCustomer({ data: { id } });
     },
     onSuccess: () => { toast.success("Customer permanently deleted"); qc.invalidateQueries({ queryKey: ["customers"] }); },
     onError: (e: any) => toast.error(e.message),

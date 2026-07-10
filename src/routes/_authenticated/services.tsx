@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
+import { softDeleteServiceFn, hardDeleteServiceFn, resetServicesToOfficialMenuFn } from "@/lib/admin-recycle.functions";
 
 export const Route = createFileRoute("/_authenticated/services")({
   component: ServicesAdmin,
@@ -23,6 +25,9 @@ function ServicesAdmin() {
   const [editing, setEditing] = useState<any | null>(null);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<any | null>(null);
+  const softDelSvc = useServerFn(softDeleteServiceFn);
+  const hardDelSvc = useServerFn(hardDeleteServiceFn);
+  const resetMenuFn = useServerFn(resetServicesToOfficialMenuFn);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["cats-admin"],
@@ -51,19 +56,13 @@ function ServicesAdmin() {
   };
 
   const softDel = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("soft_delete_service", { _id: id });
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await softDelSvc({ data: { id } }); },
     onSuccess: () => { toast.success("Moved to Recycle Bin"); invalidate(); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const hardDel = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("hard_delete_service", { _id: id });
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await hardDelSvc({ data: { id } }); },
     onSuccess: () => { toast.success("Service permanently deleted"); invalidate(); },
     onError: (e: any) => toast.error(e.message),
   });
@@ -81,8 +80,11 @@ function ServicesAdmin() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={async () => {
             if (!confirm("Reset the entire service catalog to the official SOI menu? This wipes current services. Past orders keep their snapshots.")) return;
-            const { error } = await supabase.rpc("reset_services_to_official_menu");
-            if (error) return toast.error(error.message);
+            try {
+              await resetMenuFn();
+            } catch (e: any) {
+              return toast.error(e?.message ?? "Reset failed");
+            }
             toast.success("Service catalog reset to official menu");
             invalidate();
             qc.invalidateQueries({ queryKey: ["cats-admin"] });

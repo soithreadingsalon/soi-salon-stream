@@ -20,6 +20,10 @@ import { toast } from "sonner";
 import { Plus, KeyRound, UserX, ExternalLink, Undo2, Trash2, Shield } from "lucide-react";
 import { upsertWorkerPin, deactivateWorker, setWorkerRole, listWorkerRoles, setRolePermissions } from "@/lib/worker-auth.functions";
 import { hasOverridePin, setOverridePin } from "@/lib/admin-overrides.functions";
+import {
+  softDeleteCustomerFn, hardDeleteCustomerFn, restoreCustomerFn,
+  softDeleteServiceFn, hardDeleteServiceFn, restoreServiceFn,
+} from "@/lib/admin-recycle.functions";
 
 
 export const Route = createFileRoute("/_authenticated/settings")({
@@ -582,6 +586,10 @@ function PermissionsTab() {
 /* ─────────────────────────── RECYCLE BIN ─────────────────────────── */
 
 function RecycleBinTab() {
+  const restoreCustomer = useServerFn(restoreCustomerFn);
+  const hardDeleteCustomer = useServerFn(hardDeleteCustomerFn);
+  const restoreService = useServerFn(restoreServiceFn);
+  const hardDeleteService = useServerFn(hardDeleteServiceFn);
   return (
     <div className="space-y-6">
       <DeletedList
@@ -590,8 +598,8 @@ function RecycleBinTab() {
         queryKey="customers_deleted"
         table="customers_deleted"
         labelFor={(r) => r.full_name}
-        restoreRpc="restore_customer"
-        hardRpc="hard_delete_customer"
+        onRestore={(id) => restoreCustomer({ data: { id } })}
+        onHardDelete={(id) => hardDeleteCustomer({ data: { id } })}
         invalidateKeys={[["customers"]]}
         columns={[
           { header: "Name",  cell: (r) => r.full_name },
@@ -605,8 +613,8 @@ function RecycleBinTab() {
         queryKey="services_deleted"
         table="services_deleted"
         labelFor={(r) => r.name}
-        restoreRpc="restore_service"
-        hardRpc="hard_delete_service"
+        onRestore={(id) => restoreService({ data: { id } })}
+        onHardDelete={(id) => hardDeleteService({ data: { id } })}
         invalidateKeys={[["services-admin"], ["services"]]}
         columns={[
           { header: "Service", cell: (r) => r.name },
@@ -624,14 +632,14 @@ interface DeletedListProps {
   queryKey: string;
   table: "customers_deleted" | "services_deleted";
   labelFor: (row: any) => string;
-  restoreRpc: "restore_customer" | "restore_service";
-  hardRpc: "hard_delete_customer" | "hard_delete_service";
+  onRestore: (id: string) => Promise<any>;
+  onHardDelete: (id: string) => Promise<any>;
   invalidateKeys: string[][];
   columns: { header: string; cell: (row: any) => React.ReactNode }[];
 }
 
 function DeletedList({
-  title, emptyLabel, queryKey, table, labelFor, restoreRpc, hardRpc, invalidateKeys, columns,
+  title, emptyLabel, queryKey, table, labelFor, onRestore, onHardDelete, invalidateKeys, columns,
 }: DeletedListProps) {
   const qc = useQueryClient();
   const { data = [] } = useQuery({
@@ -653,19 +661,13 @@ function DeletedList({
   };
 
   const restore = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc(restoreRpc, { _id: id });
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await onRestore(id); },
     onSuccess: () => { toast.success("Restored"); refresh(); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const hard = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc(hardRpc, { _id: id });
-      if (error) throw error;
-    },
+    mutationFn: async (id: string) => { await onHardDelete(id); },
     onSuccess: () => { toast.success("Permanently deleted"); refresh(); },
     onError: (e: any) => toast.error(e.message),
   });
