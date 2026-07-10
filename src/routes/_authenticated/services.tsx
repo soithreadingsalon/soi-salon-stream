@@ -25,6 +25,9 @@ function ServicesAdmin() {
   const [editing, setEditing] = useState<any | null>(null);
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState<any | null>(null);
+  const softDelSvc = useServerFn(softDeleteServiceFn);
+  const hardDelSvc = useServerFn(hardDeleteServiceFn);
+  const resetMenuFn = useServerFn(resetServicesToOfficialMenuFn);
 
   const { data: cats = [] } = useQuery({
     queryKey: ["cats-admin"],
