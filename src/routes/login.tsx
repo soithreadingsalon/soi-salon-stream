@@ -12,8 +12,14 @@ import { SoiLogo } from "@/components/SoiLogo";
 import { toast } from "sonner";
 import { Loader2, User, ArrowLeft, Delete } from "lucide-react";
 import { signInWithPin } from "@/lib/worker-auth.functions";
+import { isSiteUnlocked } from "@/lib/gate.functions";
+import { redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/login")({
+  beforeLoad: async () => {
+    const { unlocked } = await isSiteUnlocked();
+    if (!unlocked) throw redirect({ to: "/gate" });
+  },
   component: LoginPage,
 });
 

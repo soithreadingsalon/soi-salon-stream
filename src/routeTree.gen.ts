@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SoiRouteImport } from './routes/soi'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as GateRouteImport } from './routes/gate'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -33,6 +34,11 @@ const SoiRoute = SoiRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GateRoute = GateRouteImport.update({
+  id: '/gate',
+  path: '/gate',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
@@ -106,6 +112,7 @@ const AuthenticatedCustomersCustomerIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/gate': typeof GateRoute
   '/login': typeof LoginRoute
   '/soi': typeof SoiRoute
   '/appointments': typeof AuthenticatedAppointmentsRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/gate': typeof GateRoute
   '/login': typeof LoginRoute
   '/soi': typeof SoiRoute
   '/appointments': typeof AuthenticatedAppointmentsRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/gate': typeof GateRoute
   '/login': typeof LoginRoute
   '/soi': typeof SoiRoute
   '/_authenticated/appointments': typeof AuthenticatedAppointmentsRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/gate'
     | '/login'
     | '/soi'
     | '/appointments'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/gate'
     | '/login'
     | '/soi'
     | '/appointments'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/gate'
     | '/login'
     | '/soi'
     | '/_authenticated/appointments'
@@ -209,6 +221,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  GateRoute: typeof GateRoute
   LoginRoute: typeof LoginRoute
   SoiRoute: typeof SoiRoute
   ApiPublicWebsiteAppointmentRoute: typeof ApiPublicWebsiteAppointmentRoute
@@ -228,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gate': {
+      id: '/gate'
+      path: '/gate'
+      fullPath: '/gate'
+      preLoaderRoute: typeof GateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -370,6 +390,7 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  GateRoute: GateRoute,
   LoginRoute: LoginRoute,
   SoiRoute: SoiRoute,
   ApiPublicWebsiteAppointmentRoute: ApiPublicWebsiteAppointmentRoute,

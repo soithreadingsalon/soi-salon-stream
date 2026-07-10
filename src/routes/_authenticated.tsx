@@ -1,11 +1,16 @@
-import { createFileRoute, Navigate, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Navigate, Outlet, redirect } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { SoiLogo } from "@/components/SoiLogo";
 import { ClockWidget } from "@/components/ClockWidget";
+import { isSiteUnlocked } from "@/lib/gate.functions";
 
 export const Route = createFileRoute("/_authenticated")({
+  beforeLoad: async () => {
+    const { unlocked } = await isSiteUnlocked();
+    if (!unlocked) throw redirect({ to: "/gate" });
+  },
   component: AuthLayout,
 });
 
