@@ -80,8 +80,11 @@ function ServicesAdmin() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={async () => {
             if (!confirm("Reset the entire service catalog to the official SOI menu? This wipes current services. Past orders keep their snapshots.")) return;
-            const { error } = await supabase.rpc("reset_services_to_official_menu");
-            if (error) return toast.error(error.message);
+            try {
+              await resetMenuFn();
+            } catch (e: any) {
+              return toast.error(e?.message ?? "Reset failed");
+            }
             toast.success("Service catalog reset to official menu");
             invalidate();
             qc.invalidateQueries({ queryKey: ["cats-admin"] });
