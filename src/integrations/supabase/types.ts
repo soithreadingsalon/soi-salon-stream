@@ -1448,6 +1448,16 @@ export type Database = {
           display_name: string | null
           id: string | null
         }
+        Insert: {
+          active?: boolean | null
+          display_name?: never
+          id?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          display_name?: never
+          id?: string | null
+        }
         Relationships: []
       }
     }
