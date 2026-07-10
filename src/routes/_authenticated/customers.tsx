@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { listCustomersForExport } from "@/lib/customers.functions";
+import { softDeleteCustomerFn, hardDeleteCustomerFn } from "@/lib/admin-recycle.functions";
 import { ImportWebsiteDialog } from "@/components/ImportWebsiteDialog";
 
 export const Route = createFileRoute("/_authenticated/customers")({
