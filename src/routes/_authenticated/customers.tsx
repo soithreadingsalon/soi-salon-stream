@@ -71,8 +71,7 @@ function CustomersPage() {
 
   const softDel = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("soft_delete_customer", { _id: id });
-      if (error) throw error;
+      await softDelCustomer({ data: { id } });
     },
     onSuccess: () => { toast.success("Moved to Recycle Bin"); qc.invalidateQueries({ queryKey: ["customers"] }); },
     onError: (e: any) => toast.error(e.message),
@@ -80,8 +79,7 @@ function CustomersPage() {
 
   const hardDel = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("hard_delete_customer", { _id: id });
-      if (error) throw error;
+      await hardDelCustomer({ data: { id } });
     },
     onSuccess: () => { toast.success("Customer permanently deleted"); qc.invalidateQueries({ queryKey: ["customers"] }); },
     onError: (e: any) => toast.error(e.message),
