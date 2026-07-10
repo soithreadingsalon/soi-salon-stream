@@ -1452,6 +1452,14 @@ export type Database = {
       }
     }
     Functions: {
+      get_workers_public: {
+        Args: never
+        Returns: {
+          active: boolean
+          display_name: string
+          id: string
+        }[]
+      }
       hard_delete_customer: { Args: { _id: string }; Returns: undefined }
       hard_delete_service: { Args: { _id: string }; Returns: undefined }
       has_any_role: {
