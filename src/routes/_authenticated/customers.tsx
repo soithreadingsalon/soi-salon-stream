@@ -46,6 +46,8 @@ function CustomersPage() {
   const [exporting, setExporting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const exportFn = useServerFn(listCustomersForExport);
+  const softDelCustomer = useServerFn(softDeleteCustomerFn);
+  const hardDelCustomer = useServerFn(hardDeleteCustomerFn);
 
   const { data = [] } = useQuery({
     queryKey: ["customers", q],
