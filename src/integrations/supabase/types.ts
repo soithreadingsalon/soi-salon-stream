@@ -1448,18 +1448,20 @@ export type Database = {
           display_name: string | null
           id: string | null
         }
+        Insert: {
+          active?: boolean | null
+          display_name?: never
+          id?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          display_name?: never
+          id?: string | null
+        }
         Relationships: []
       }
     }
     Functions: {
-      get_workers_public: {
-        Args: never
-        Returns: {
-          active: boolean
-          display_name: string
-          id: string
-        }[]
-      }
       hard_delete_customer: { Args: { _id: string }; Returns: undefined }
       hard_delete_service: { Args: { _id: string }; Returns: undefined }
       has_any_role: {
