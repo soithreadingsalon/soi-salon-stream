@@ -52,8 +52,10 @@ const items: NavItem[] = [
 
 export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const { signOut, user, roles, hasRole } = useAuth();
-  const { can, isAdmin } = usePermissions();
+  const { signOut, user, roles, rolesLoading, hasRole } = useAuth();
+  const { can, isAdmin, isLoading: permsLoading } = usePermissions();
+
+  const stillLoading = rolesLoading || permsLoading;
 
   const visible = items.filter((it) => {
     if (it.adminOnly) return hasRole("super_admin", "admin");
@@ -73,19 +75,27 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visible.map((it) => {
-                const active = path === it.url || path.startsWith(it.url + "/");
-                return (
-                  <SidebarMenuItem key={it.url}>
-                    <SidebarMenuButton asChild isActive={active}>
-                      <Link to={it.url} className="flex items-center gap-3">
-                        <it.icon className="h-4 w-4" />
-                        <span>{it.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
+              {stillLoading && visible.length === 0 ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <SidebarMenuItem key={`sk-${i}`}>
+                    <div className="mx-2 my-1 h-8 animate-pulse rounded-md bg-sidebar-accent/40" />
                   </SidebarMenuItem>
-                );
-              })}
+                ))
+              ) : (
+                visible.map((it) => {
+                  const active = path === it.url || path.startsWith(it.url + "/");
+                  return (
+                    <SidebarMenuItem key={it.url}>
+                      <SidebarMenuButton asChild isActive={active}>
+                        <Link to={it.url} className="flex items-center gap-3">
+                          <it.icon className="h-4 w-4" />
+                          <span>{it.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
