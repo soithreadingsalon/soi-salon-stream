@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "sdk_version": "0.23.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://wywcvoczkjkxhwflwccd.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "soi-pos-mcp",
+      "version": "0.1.0",
+      "title": "SOI Threading Salon POS"
+    },
+    "tools": [
+      {
+        "name": "list_todays_appointments",
+        "title": "List today's appointments",
+        "description": "Return all appointments for the salon on a given date (defaults to today). Respects the signed-in user's role and row-level security.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "date": {
+              "description": "ISO date (YYYY-MM-DD). Defaults to today.",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_sales_summary",
+        "title": "Get sales summary",
+        "description": "Return totals (order count, gross, tips) for orders within a date range. Dates are inclusive ISO YYYY-MM-DD; defaults to today.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "start_date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "end_date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "find_customer",
+        "title": "Find customer",
+        "description": "Search customers by name, phone, or email (case-insensitive substring match). Returns up to 20 matches.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Name, phone, or email fragment"
+            }
+          },
+          "required": [
+            "query"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
