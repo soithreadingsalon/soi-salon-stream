@@ -52,8 +52,10 @@ const items: NavItem[] = [
 
 export function AppSidebar() {
   const path = useRouterState({ select: (r) => r.location.pathname });
-  const { signOut, user, roles, hasRole } = useAuth();
-  const { can, isAdmin } = usePermissions();
+  const { signOut, user, roles, rolesLoading, hasRole } = useAuth();
+  const { can, isAdmin, isLoading: permsLoading } = usePermissions();
+
+  const stillLoading = rolesLoading || permsLoading;
 
   const visible = items.filter((it) => {
     if (it.adminOnly) return hasRole("super_admin", "admin");
