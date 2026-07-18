@@ -16,12 +16,20 @@ import { isSiteUnlocked } from "@/lib/gate.functions";
 import { redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/login")({
-  beforeLoad: async () => {
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" ? s.next : undefined,
+  }),
+  beforeLoad: async ({ search }) => {
     const { unlocked } = await isSiteUnlocked();
-    if (!unlocked) throw redirect({ to: "/gate" });
+    if (!unlocked) throw redirect({ to: "/gate", search: search as never });
   },
   component: LoginPage,
 });
+
+function safeNext(next: string | undefined): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
 
 type Worker = { id: string; display_name: string; active: boolean };
 
@@ -47,6 +55,9 @@ function LoginPage() {
     },
   });
 
+  const { next } = Route.useSearch();
+  const nextTarget = safeNext(next);
+
   useEffect(() => {
     if (pin.length !== 4 || !picked || busy) return;
     (async () => {
@@ -58,15 +69,25 @@ function LoginPage() {
         } as any);
         if (error) throw error;
         toast.success(`Welcome, ${picked.display_name}`);
-        navigate({ to: "/pos" });
+        if (nextTarget) {
+          window.location.assign(nextTarget);
+        } else {
+          navigate({ to: "/pos" });
+        }
       } catch (e: any) {
         toast.error(e?.message ?? "Invalid PIN");
         setPin("");
       } finally { setBusy(false); }
     })();
-  }, [pin, picked, busy, callSignIn, navigate]);
+  }, [pin, picked, busy, callSignIn, navigate, nextTarget]);
 
-  if (!loading && user) return <Navigate to="/dashboard" />;
+  if (!loading && user) {
+    if (nextTarget) {
+      if (typeof window !== "undefined") window.location.assign(nextTarget);
+      return null;
+    }
+    return <Navigate to="/dashboard" />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-cream px-4 py-10">
